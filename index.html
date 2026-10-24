@@ -1,0 +1,1823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Movie Night Roulette</title>
+<meta name="description" content="Spin the roulette and pick a family blockbuster from the '80s, '90s and 2000s.">
+<meta name="theme-color" content="#0e0b1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Movie Night">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<meta property="og:title" content="Movie Night Roulette">
+<meta property="og:description" content="Spin the roulette and pick a family blockbuster from the '80s, '90s and 2000s.">
+<meta property="og:image" content="icons/icon-512.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: one-screen phone app — VHS rental shelf. Marquee header, LED "tape deck" roulette, tape-spine catalog, fixed bottom tab bar. Single dark look by choice. */
+:root{
+  --ink:#0e0b1f; --panel:#19153a; --panel-2:#221d4b; --line:#332c6b;
+  --paper:#f3eedf; --muted:#a29cc9;
+  --mag:#ff3d8b; --cyan:#33d6e3; --amber:#ffc23d; --green:#5fe39a;
+  --f-display:"Bungee","Arial Black",Impact,sans-serif;
+  --f-body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --f-led:"VT323","Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 calc(84px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:720px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* Header */
+header{padding-block:20px 8px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--f-display);font-size:clamp(22px,6vw,30px);line-height:.95;letter-spacing:.01em;margin:0;text-wrap:balance}
+.brand span{color:var(--mag)} .brand em{font-style:normal;color:var(--cyan)}
+.sync{font-family:var(--f-led);font-size:18px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.on i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.stripes{height:6px;background:linear-gradient(90deg,var(--mag) 0 25%,var(--amber) 25% 50%,var(--cyan) 50% 75%,var(--green) 75%);border-radius:3px;margin-bottom:16px;opacity:.9}
+
+/* Filters */
+.filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:18px}
+.dd{display:grid;gap:4px;min-width:0}
+.dd label{font-family:var(--f-led);font-size:17px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;padding-left:4px}
+.dd .box{position:relative}
+.dd select{appearance:none;-webkit-appearance:none;width:100%;min-width:0;background:var(--panel);color:var(--paper);
+  border:1.5px solid var(--line);border-radius:12px;padding:11px 30px 11px 12px;font:600 15px var(--f-body);text-overflow:ellipsis}
+.dd .box::after{content:"▾";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--amber);pointer-events:none;font-size:14px}
+.dd select.active{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+.dd select.fam.active{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+.clear{grid-column:1/-1;justify-self:start;background:none;border:0;color:var(--cyan);font-weight:600;font-size:14px;padding:2px 4px}
+@media (max-width:360px){.filters{grid-template-columns:1fr 1fr}.dd.famdd{grid-column:1/-1}}
+
+/* Roulette */
+.deck{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:16px}
+.screen{position:relative;background:#05040c;border-radius:10px;height:132px;overflow:hidden;border:2px solid #000;
+  box-shadow:inset 0 0 40px rgba(51,214,227,.15)}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px)}
+.screen .hud{position:absolute;top:8px;left:12px;right:12px;display:flex;justify-content:space-between;font-family:var(--f-led);font-size:18px;color:var(--cyan);z-index:2}
+.reel{position:absolute;left:0;right:0;top:0;will-change:transform}
+.reel div{height:44px;display:flex;align-items:center;justify-content:center;padding:0 16px;text-align:center;
+  font-family:var(--f-display);font-size:clamp(15px,4.6vw,22px);color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen .mask{position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(#05040c 0%,transparent 34%,transparent 66%,#05040c 100%)}
+.screen .idle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-family:var(--f-led);font-size:24px;color:var(--amber);z-index:2;padding:0 20px}
+.spin{width:100%;border:0;border-radius:14px;padding:16px;font-family:var(--f-display);font-size:22px;letter-spacing:.02em;
+  background:var(--mag);color:var(--ink);box-shadow:0 6px 0 #a3134f;transition:transform .08s}
+.spin:active{transform:translateY(4px);box-shadow:0 2px 0 #a3134f}
+.spin:disabled{opacity:.5}
+.pool{font-family:var(--f-led);font-size:18px;color:var(--muted);text-align:center;margin:-6px 0 0}
+.incl{display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--muted)}
+.incl input{accent-color:var(--cyan);width:18px;height:18px}
+
+/* Reveal */
+.reveal{scroll-margin-top:12px;margin-top:18px;border-radius:18px;padding:20px;background:var(--paper);color:var(--ink);display:grid;gap:10px;position:relative;overflow:hidden}
+.reveal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;background:var(--rc,var(--mag))}
+.reveal .eyebrow{font-family:var(--f-led);font-size:20px;color:#5b5486;letter-spacing:.06em}
+.reveal h2{font-family:var(--f-display);font-size:clamp(24px,7vw,34px);line-height:1;margin:0;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rate{font-weight:700;font-size:13px;border:2px solid currentColor;border-radius:4px;padding:1px 6px}
+.tag{font-size:13px;font-weight:600;background:rgba(14,11,31,.08);border-radius:999px;padding:2px 10px}
+.reveal p{margin:0;max-width:60ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.btn{border:2px solid var(--ink);background:transparent;border-radius:10px;padding:9px 14px;font-weight:700;font-size:15px}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.reveal.pop{animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+
+/* Catalog */
+.sechead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:4px 0 12px}
+.sechead h2{font-family:var(--f-display);font-size:20px;margin:0}
+.count{font-family:var(--f-led);font-size:19px;color:var(--muted)}
+.search{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:11px 14px;color:var(--paper);font:inherit;margin-bottom:12px}
+.search::placeholder{color:var(--muted)}
+.list{display:grid;gap:8px}
+.tape{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:12px;background:var(--panel);border-radius:10px;padding:10px 10px 10px 0;overflow:hidden}
+.tape .spine{align-self:stretch;background:var(--rc)}
+.tape .info{min-width:0}
+.tape h3{margin:0;font-size:16px;font-weight:700;line-height:1.2}
+.tape .sub{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;font-variant-numeric:tabular-nums}
+.tape .sub b{font-weight:700;color:var(--paper)}
+.tbtns{display:flex;gap:6px}
+.ib{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel-2);display:grid;place-items:center;font-size:18px;color:var(--muted)}
+.ib[aria-pressed="true"].want{background:var(--mag);border-color:var(--mag);color:var(--ink)}
+.ib[aria-pressed="true"].seen{background:var(--green);border-color:var(--green);color:var(--ink)}
+.tape.is-seen h3{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(162,156,201,.5)}
+.empty{text-align:center;padding:36px 16px;color:var(--muted);background:var(--panel);border-radius:14px;border:1.5px dashed var(--line)}
+.empty strong{display:block;font-family:var(--f-display);font-size:18px;color:var(--paper);margin-bottom:6px}
+.resetbar{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.lnk{background:none;border:1.5px solid var(--line);border-radius:10px;padding:8px 14px;color:var(--muted);font-size:14px;font-weight:600}
+.lnk.danger{border-color:var(--mag);color:var(--mag)}
+.mine{font-weight:700;color:var(--amber)}
+.ib.del{font-size:14px}
+.ib.del.armed{width:auto;padding:0 10px;background:var(--mag);border-color:var(--mag);color:var(--ink);font-weight:700;font-size:13px}
+.addbtn{width:100%;border:1.5px dashed var(--amber);background:transparent;color:var(--amber);border-radius:12px;padding:11px;font-weight:700;font-size:15px;margin-bottom:12px}
+.addform{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px;display:grid;gap:12px}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fld{display:grid;gap:4px;min-width:0}
+.fld.wide{grid-column:1/-1}
+.fld label{font-family:var(--f-led);font-size:17px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.fld input,.fld select{appearance:none;-webkit-appearance:none;width:100%;min-width:0;background:var(--ink);color:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font:500 16px var(--f-body)}
+.fld .box{position:relative}
+.fld .box::after{content:"▾";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--amber);pointer-events:none;font-size:14px}
+.fld input::placeholder{color:#6d6799}
+.ferr{margin:0;color:var(--mag);font-weight:600;font-size:14px}
+.factions{display:flex;gap:8px;flex-wrap:wrap}
+.fsave{border:0;border-radius:10px;padding:10px 16px;background:var(--amber);color:var(--ink);font-weight:700;font-size:15px}
+.fnote{margin:0;font-size:13px;color:var(--muted)}
+
+/* Tab bar */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(14,11,31,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-top:1.5px solid var(--line);
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+nav.tabs .in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+nav.tabs button{background:none;border:0;border-radius:12px;padding:6px 2px;display:grid;justify-items:center;gap:2px;color:var(--muted);font-size:12px;font-weight:600}
+nav.tabs button .ico{font-size:20px;line-height:1}
+nav.tabs button[aria-current="page"]{color:var(--paper);background:var(--panel-2)}
+nav.tabs .n{font-family:var(--f-led);font-size:15px;color:var(--amber)}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--paper);color:var(--ink);font-weight:700;padding:9px 16px;border-radius:999px;z-index:30;font-size:14px;transition:opacity .25s;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.reveal.pop{animation:none}.spin{transition:none}}
+
+/* Skins (Pro): same tokens, different tape stock */
+:root[data-skin="arcade"]{--ink:#06120b;--panel:#0e2016;--panel-2:#143022;--line:#1f4430;--paper:#e6ffec;--muted:#86b896;--mag:#ff7a3d;--cyan:#3dffa0;--amber:#e9ff4a;--green:#3dffa0}
+:root[data-skin="sunset"]{--ink:#1d0d16;--panel:#2c1621;--panel-2:#3a1d2c;--line:#57293f;--paper:#fff0e3;--muted:#d29db0;--mag:#ff5c6c;--cyan:#ffa94d;--amber:#ffd166;--green:#7fd8a4}
+:root[data-skin="ice"]{--ink:#071425;--panel:#0e2138;--panel-2:#142b48;--line:#21416a;--paper:#eef6ff;--muted:#8fb0d6;--mag:#7c8cff;--cyan:#5ce1ff;--amber:#c8e6ff;--green:#6ff0c8}
+
+.filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:600px){.filters{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:360px){.dd.famdd{grid-column:auto}}
+
+.subrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ghost{border:1.5px solid var(--line);background:var(--panel-2);border-radius:12px;padding:10px 14px;font-weight:700;font-size:15px;color:var(--paper);display:inline-flex;gap:6px;align-items:center}
+.ghost .lock,.lock{font-size:12px;font-weight:700;color:var(--ink);background:var(--amber);border-radius:999px;padding:1px 7px;letter-spacing:.04em}
+.ghost.on{border-color:var(--cyan);color:var(--cyan)}
+
+/* Reveal extras */
+.snack{display:flex;align-items:center;gap:8px;font-weight:700;background:rgba(14,11,31,.07);border-radius:10px;padding:8px 12px}
+.watch{display:grid;gap:6px;border-top:1.5px dashed rgba(14,11,31,.2);padding-top:10px;margin-top:2px}
+.watch .wl{font-family:var(--f-led);font-size:18px;color:#5b5486;letter-spacing:.05em}
+.watch .links{display:flex;flex-wrap:wrap;gap:6px}
+.watch a{color:var(--ink);text-decoration:none;font-weight:700;font-size:14px;border:2px solid var(--ink);border-radius:999px;padding:5px 12px}
+.watch a:focus-visible{outline:2px solid var(--mag);outline-offset:2px}
+.disc{font-size:12px;color:#5b5486;margin:0}
+
+/* Veto */
+.veto{scroll-margin-top:12px;margin-top:18px;background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:16px;display:grid;gap:12px}
+.veto h3{margin:0;font-family:var(--f-display);font-size:18px}
+.veto p{margin:0;color:var(--muted);font-size:14px}
+.vgrid{display:grid;gap:8px}
+.vcard{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:12px;background:var(--panel-2);border-radius:10px;padding:10px 10px 10px 0;overflow:hidden;transition:opacity .25s,transform .25s}
+.vcard .spine{align-self:stretch;background:var(--rc)}
+.vcard .info{min-width:0}
+.vcard b{display:block;line-height:1.2}
+.vcard small{color:var(--muted)}
+.vcard.out{opacity:0;transform:translateX(30px)}
+.stepper{display:flex;align-items:center;gap:12px}
+.stepper button{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel-2);font-size:22px;font-weight:700}
+.stepper output{font-family:var(--f-led);font-size:40px;min-width:2ch;text-align:center;color:var(--amber)}
+.vturn{font-family:var(--f-led);font-size:22px;color:var(--cyan)}
+.vv{border:2px solid var(--cyan);background:transparent;color:var(--cyan);border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px}
+.tally{display:grid;gap:6px}
+.trow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;font-weight:600}
+.trow .bar{grid-column:1/-1;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.trow .bar i{display:block;height:100%;background:var(--cyan)}
+.trow.win{color:var(--amber)}
+.trow.win .bar i{background:var(--amber)}
+.vrow{display:flex;gap:8px;flex-wrap:wrap}
+.vx{border:2px solid var(--mag);background:transparent;color:var(--mag);border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px}
+
+/* Pro tab */
+.prohero{border-radius:18px;padding:20px;background:linear-gradient(135deg,var(--mag),var(--amber));color:var(--ink);display:grid;gap:8px;margin-bottom:16px}
+.prohero h2{margin:0;font-family:var(--f-display);font-size:clamp(22px,6vw,30px);line-height:1}
+.prohero .price{font-family:var(--f-led);font-size:26px}
+.prohero p{margin:0;font-weight:500;max-width:52ch}
+.prohero .buy{justify-self:start;border:0;border-radius:12px;padding:12px 18px;background:var(--ink);color:var(--paper);font-weight:700;font-size:16px}
+.prohero .note{font-size:13px;opacity:.85}
+.prohero.owned{background:linear-gradient(135deg,var(--green),var(--cyan))}
+.card{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;margin-bottom:12px}
+.card h3{margin:0;font-family:var(--f-display);font-size:17px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card p{margin:0;color:var(--muted);font-size:14px;max-width:60ch}
+.packs{display:grid;gap:8px}
+.pack{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--panel-2);border-radius:12px;padding:10px 12px}
+.pack .em{font-size:24px}
+.pack b{display:block}
+.pack small{color:var(--muted)}
+.sw{position:relative;width:50px;height:30px;border-radius:999px;border:0;background:var(--line);flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--paper);transition:transform .2s}
+.sw[aria-checked="true"]{background:var(--green)}
+.sw[aria-checked="true"]::after{transform:translateX(20px)}
+.sw:disabled{opacity:.45}
+.skins{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.skin{border:2px solid var(--line);border-radius:12px;padding:8px 4px;background:var(--panel-2);display:grid;gap:6px;justify-items:center;font-size:12px;font-weight:700}
+.skin[aria-pressed="true"]{border-color:var(--paper)}
+.skin .dots{display:flex;gap:3px}
+.skin .dots i{width:12px;height:12px;border-radius:50%;display:block}
+.skin:disabled{opacity:.45}
+.fambox{display:grid;gap:8px}
+.famrow{display:flex;gap:8px;flex-wrap:wrap}
+.famrow input{flex:1 1 150px;min-width:0;background:var(--ink);color:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font:600 16px var(--f-body);text-transform:uppercase;letter-spacing:.1em}
+.famrow input::placeholder{text-transform:none;letter-spacing:0;color:#6d6799}
+.code{font-family:var(--f-led);font-size:34px;letter-spacing:.2em;color:var(--amber);line-height:1}
+.copy{border:1.5px solid var(--line);background:var(--panel-2);border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px}
+.ok{color:var(--green);font-weight:700;font-size:14px;margin:0}
+.bad{color:var(--mag);font-weight:700;font-size:14px;margin:0}
+.feat{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.feat li{display:flex;gap:8px;font-size:15px}
+.feat li span:first-child{flex:none;width:22px;text-align:center}
+.srcpill{font-size:12px;font-weight:700;color:var(--amber)}
+nav.tabs .in{grid-template-columns:repeat(5,1fr)}
+nav.tabs button{font-size:11px}
+
+
+.banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--panel-2);border:1.5px solid var(--amber);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.banner div{display:grid;gap:2px;min-width:0;flex:1 1 200px}
+.banner b{font-family:var(--f-display);font-size:15px;font-weight:400}
+.banner span{color:var(--muted);font-size:14px}
+.bbtn{border:0;border-radius:10px;padding:9px 14px;background:var(--amber);color:var(--ink);font-weight:700;font-size:14px}
+.insea{color:var(--green);font-weight:700}
+.cal{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.door{aspect-ratio:1;max-width:100%;border-radius:10px;border:1.5px solid var(--line);background:var(--panel-2);display:grid;place-items:center;align-content:center;gap:0;padding:2px;color:var(--paper)}
+.door .dn{font-family:var(--f-display);font-size:clamp(16px,5vw,22px);line-height:1}
+.door .dt{font-size:10px;font-weight:700;color:var(--muted);min-height:12px}
+.door.now{background:var(--mag);border-color:var(--mag);color:var(--ink)}
+.door.now .dt{color:var(--ink)}
+.door.past{opacity:.75}
+.door.future{opacity:.5}
+.door.seen .dt{color:var(--green)}
+.door.peek{border-style:dashed}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.langbtn{border:1.5px solid var(--line);background:var(--panel);color:var(--paper);border-radius:999px;padding:4px 10px;font-family:var(--f-led);font-size:18px;letter-spacing:.08em}
+.rvbtn{border-color:var(--cyan);color:var(--cyan)}
+.rv{border-radius:20px;padding:22px 18px;background:linear-gradient(160deg,var(--panel-2),var(--ink) 70%);border:2px solid var(--line);display:grid;gap:14px;position:relative;overflow:hidden}
+.rv::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:linear-gradient(90deg,var(--mag) 0 25%,var(--amber) 25% 50%,var(--cyan) 50% 75%,var(--green) 75%)}
+.rv-eye{font-family:var(--f-led);font-size:18px;letter-spacing:.12em;color:var(--muted)}
+.rv h2{margin:0;font-family:var(--f-display);font-size:clamp(24px,7vw,34px);line-height:1;text-wrap:balance}
+.rv p{margin:0;color:var(--muted)}
+.rv-big{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.rv-big .num{font-family:var(--f-led);font-size:clamp(72px,24vw,110px);line-height:.8;color:var(--amber);text-shadow:0 0 18px rgba(255,194,61,.35)}
+.rv-big span:last-child{font-weight:700;font-size:18px}
+.rv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rv-cell{background:rgba(255,255,255,.04);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.rv-cell.wide{grid-column:1/-1}
+.rv-cell small{font-family:var(--f-led);font-size:16px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.rv-cell b{font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+.rv-cell em{font-style:normal;color:var(--cyan);font-size:13px;font-weight:600}
+.rv-cd{font-weight:700;color:var(--paper)!important}
+.rv-note{margin:10px 0 0;color:var(--muted);font-size:14px}
+.rvact{margin-top:12px}
+
+/* compact roulette */
+header{padding-block:14px 6px}
+.stripes{margin-bottom:12px}
+.filters{gap:6px;margin-bottom:12px}
+@media (min-width:520px){.filters{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.dd{gap:2px}
+.dd label{font-size:15px}
+.dd select{padding:8px 26px 8px 10px;font-size:14px;border-radius:10px}
+.dd .box::after{right:9px}
+.banner{padding:9px 12px;margin-bottom:10px;gap:8px}
+.banner b{font-size:14px}
+.banner span{font-size:13px}
+.bbtn{padding:7px 12px;font-size:13px}
+.deck{padding:12px;gap:10px;border-radius:16px}
+.screen .idle{font-size:21px}
+.spin{padding:12px;font-size:20px;box-shadow:0 5px 0 #a3134f}
+.poolrow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:-2px}
+.poolrow .pool{margin:0;font-size:17px}
+.poolrow .incl{font-size:13px;gap:6px}
+.poolrow .incl input{width:16px;height:16px}
+.modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mode{position:relative;border:1.5px solid var(--line);background:var(--panel-2);border-radius:10px;padding:7px 4px;display:flex;align-items:center;justify-content:center;gap:5px;font-weight:700;font-size:14px;color:var(--paper);min-width:0}
+.mode .mi{font-size:15px;line-height:1}
+.mode .lock{position:absolute;top:-7px;right:-4px;font-size:9px;padding:1px 5px}
+.mode[aria-pressed="true"]{border-color:var(--cyan);color:var(--cyan)}
+
+.hdr-r{gap:8px}
+.syncalert{display:flex;align-items:flex-start;gap:10px;background:var(--panel-2);border:1.5px solid var(--mag);border-radius:12px;padding:9px 10px 9px 12px;margin-bottom:10px}
+.syncalert .si{font-size:16px;line-height:1.3}
+.syncalert div{display:grid;gap:1px;min-width:0;flex:1}
+.syncalert b{font-size:14px}
+.syncalert span{font-size:13px;color:var(--muted);line-height:1.35}
+.syncalert .sx{flex:none;border:0;background:none;color:var(--muted);font-size:15px;padding:2px 4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="brand">Movie Night<br><span>Rou</span><em>lette</em></h1>
+    <div class="hdr-r"><button class="langbtn" id="langBtn" data-raw>ES</button></div>
+  </header>
+  <div class="stripes" aria-hidden="true"></div>
+
+  <section class="filters" aria-label="Filters">
+    <div class="dd"><label for="fCol">Collection</label><div class="box"><select id="fCol"></select></div></div>
+    <div class="dd"><label for="fDec">Decade</label><div class="box"><select id="fDec">
+      <option value="">All</option><option value="80s">80s</option><option value="90s">90s</option><option value="00s">2000s</option><option value="10s">2010s</option><option value="other">Other years</option>
+    </select></div></div>
+    <div class="dd"><label for="fGen">Genre</label><div class="box"><select id="fGen"><option value="">All</option></select></div></div>
+    <div class="dd famdd"><label for="fFam">Family</label><div class="box"><select id="fFam" class="fam">
+      <option value="all">All ratings</option><option value="nor" selected>🍿 No R</option><option value="kids">Kids (G/PG)</option>
+    </select></div></div>
+    <button class="clear" id="fClear" hidden>Clear filters</button>
+  </section>
+
+  <main>
+    <section id="v-spin">
+      <div class="syncalert" id="syncAlert" role="status" hidden>
+        <span class="si">⚠️</span>
+        <div><b>Not synced</b><span>Your lists are saved on this phone only. Open the app signed in to Claude to keep them on every device.</span></div>
+        <button class="sx" id="syncX" aria-label="Dismiss">✕</button>
+      </div>
+      <div class="banner" id="banner" hidden></div>
+      <div class="deck">
+        <div class="screen" id="screen">
+          <div class="hud"><span>▶ PLAY</span><span id="clock">SP 0:00:00</span></div>
+          <div class="reel" id="reel"></div>
+          <div class="mask"></div>
+          <div class="idle" id="idle">Pick your filters and hit<br>SURPRISE ME!</div>
+        </div>
+        <button class="spin" id="spinBtn">🎲 Surprise Me!</button>
+        <div class="poolrow"><p class="pool" id="pool"></p><label class="incl"><input type="checkbox" id="inclSeen"> Include seen</label></div>
+        <div class="modes">
+          <button class="mode" id="vetoBtn" aria-label="Veto mode"><span class="mi">✕</span><span class="ml">Veto</span><span class="lock" data-pro>PRO</span></button>
+          <button class="mode" id="voteBtn" aria-label="Vote mode"><span class="mi">🗳️</span><span class="ml">Vote</span><span class="lock" data-pro>PRO</span></button>
+          <button class="mode" id="snackBtn" aria-pressed="false" aria-label="Suggest a snack"><span class="mi">🍿</span><span class="ml">Snack</span><span class="lock" data-pro>PRO</span></button>
+        </div>
+      </div>
+      <div id="vetoSlot"></div>
+      <div id="revealSlot"></div>
+    </section>
+
+    <section id="v-all" hidden>
+      <div class="sechead"><h2>Catalog</h2><span class="count" id="cAll"></span></div>
+      <button class="addbtn" id="addOpen" aria-expanded="false">＋ Add a movie</button>
+      <form class="addform" id="addForm" hidden novalidate>
+        <div class="fgrid">
+          <div class="fld wide"><label for="aT">Title</label><input id="aT" type="text" maxlength="90" placeholder="e.g. The Sandlot 2" autocomplete="off"></div>
+          <div class="fld"><label for="aY">Year</label><input id="aY" type="number" inputmode="numeric" min="1920" max="2030" placeholder="1994"></div>
+          <div class="fld"><label for="aR">Rating</label><div class="box"><select id="aR"><option>G</option><option selected>PG</option><option>PG-13</option><option>R</option><option value="NR">Not rated</option></select></div></div>
+          <div class="fld"><label for="aG">Genre</label><div class="box"><select id="aG"></select></div></div>
+          <div class="fld"><label for="aG2">2nd genre</label><div class="box"><select id="aG2"><option value="">None</option></select></div></div>
+          <div class="fld wide"><label for="aB">Why watch it? (optional)</label><input id="aB" type="text" maxlength="120" placeholder="One line for the reveal card" autocomplete="off"></div>
+        </div>
+        <p class="ferr" id="aErr" hidden></p>
+        <div class="factions"><button type="submit" class="fsave">Add to catalog</button><button type="button" class="lnk" id="addCancel">Cancel</button></div>
+        <p class="fnote" id="addNote"></p>
+      </form>
+      <input class="search" id="q" type="search" placeholder="Search movies…" autocomplete="off">
+      <div class="list" id="lAll"></div>
+    </section>
+
+    <section id="v-want" hidden>
+      <div class="sechead"><h2>Favorites</h2><span class="count" id="cWant"></span></div>
+      <div class="list" id="lWant"></div>
+    </section>
+
+    <section id="v-seen" hidden>
+      <div class="sechead"><h2>Already Watched</h2><span class="count" id="cSeen"></span></div>
+      <button class="addbtn rvbtn" id="rvOpen">📊 Year in Review</button>
+      <div class="list" id="lSeen"></div>
+      <div class="resetbar" id="resetBar" hidden>
+        <button class="lnk" id="resetAsk">Clear all watched</button>
+        <button class="lnk danger" id="resetYes" hidden>Yes, clear</button>
+        <button class="lnk" id="resetNo" hidden>Cancel</button>
+      </div>
+    </section>
+
+    <section id="v-review" hidden>
+      <div id="reviewCard"></div>
+      <div class="factions rvact"><button class="fsave" id="rvCopy">Copy summary</button><button class="lnk" id="rvBack">← Back</button></div>
+    </section>
+
+    <section id="v-pro" hidden>
+      <div class="prohero" id="proHero"></div>
+
+      <div class="card">
+        <h3>🎉 Holiday packs</h3>
+        <p>Holiday movies only play in their season, so they stay special. The rest of the year they stay out of the roulette. Halloween is free.</p>
+        <div class="packs" id="holList"></div>
+      </div>
+
+      <div class="card">
+        <h3>🎃 Halloween Countdown <span class="lock" data-pro>PRO</span></h3>
+        <p id="calnote-halloween"></p>
+        <div class="cal" id="cal-halloween"></div>
+      </div>
+
+      <div class="card">
+        <h3>🎄 Christmas Countdown <span class="lock" data-pro>PRO</span></h3>
+        <p id="calnote-christmas"></p>
+        <div class="cal" id="cal-christmas"></div>
+      </div>
+
+      <div class="card">
+        <h3>📼 Theme packs</h3>
+        <p>Turn a pack on and its movies join your catalog and the roulette all year.</p>
+        <div class="packs" id="packList"></div>
+      </div>
+
+      <div class="card">
+        <h3>👨‍👩‍👧 Family list <span class="lock" data-pro>PRO</span></h3>
+        <p>Everyone at home shares one favorites list, one watched list and the movies you add. One Pro purchase covers the family: whoever has the code can join.</p>
+        <div class="fambox" id="famBox"></div>
+      </div>
+
+      <div class="card">
+        <h3>🎨 Color themes <span class="lock" data-pro>PRO</span></h3>
+        <div class="skins" id="skinList"></div>
+      </div>
+
+      <div class="card">
+        <h3>⭐ Also in Pro</h3>
+        <ul class="feat">
+          <li><span>✕</span><span>Veto mode: the roulette deals 5 movies and each person knocks one out.</span></li>
+          <li><span>🗳️</span><span>Vote mode: everyone secretly votes for a favorite and the most votes wins.</span></li>
+          <li><span>🍿</span><span>Snack suggestion: every pick comes with an idea for tonight's snack.</span></li>
+          <li><span>🎄</span><span>Holiday packs and countdowns: a movie for every night of October and from December 1 to 25.</span></li>
+          <li><span>➕</span><span>Unlimited movies of your own (the free version holds 5).</span></li>
+          <li><span>📱</span><span>Extra home screen icons.</span></li>
+        </ul>
+      </div>
+      <div class="resetbar"><button class="lnk" id="proOff" hidden>Turn off Pro preview</button></div>
+    </section>
+  </main>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <button data-v="spin" aria-current="page"><span class="ico">🎰</span>Roulette</button>
+  <button data-v="all"><span class="ico">📼</span>Catalog</button>
+  <button data-v="want"><span class="ico">❤️</span><span>Favorites <span class="n" id="nWant"></span></span></button>
+  <button data-v="seen"><span class="ico">✅</span><span>Watched <span class="n" id="nSeen"></span></span></button>
+  <button data-v="pro"><span class="ico">⭐</span>Pro</button>
+</div></nav>
+<div class="toast" id="toast" style="opacity:0" aria-live="polite"></div>
+
+<script>
+// [title, year, genres, rating, blurb]
+const RAW = [
+["E.T. the Extra-Terrestrial",1982,"Sci-Fi,Adventure","PG","A boy hides a lost alien and helps him get home."],
+["Back to the Future",1985,"Sci-Fi,Comedy","PG","Marty lands in 1955 in a DeLorean and nearly erases himself."],
+["Back to the Future Part II",1989,"Sci-Fi,Comedy","PG","Marty and Doc jump to 2015 and things get messy."],
+["Raiders of the Lost Ark",1981,"Adventure,Action","PG","Indiana Jones races the Nazis for the Ark of the Covenant."],
+["Indiana Jones and the Last Crusade",1989,"Adventure,Action","PG-13","Indy and his dad hunt for the Holy Grail."],
+["The Goonies",1985,"Adventure,Comedy","PG","A gang of kids follows a pirate map to save their neighborhood."],
+["Ghostbusters",1984,"Comedy,Fantasy","PG","Three scientists start a ghost-catching business in New York."],
+["Honey, I Shrunk the Kids",1989,"Comedy,Adventure","PG","An inventor shrinks the kids and the backyard becomes a jungle."],
+["The Empire Strikes Back",1980,"Sci-Fi,Adventure","PG","Luke trains with Yoda while the Empire strikes back."],
+["Return of the Jedi",1983,"Sci-Fi,Adventure","PG","The final showdown with the Emperor, Ewoks included."],
+["The Princess Bride",1987,"Fantasy,Adventure","PG","A grandpa reads a tale of pirates, giants and true love."],
+["Who Framed Roger Rabbit",1988,"Animation,Comedy","PG","A detective helps a cartoon rabbit framed for a crime."],
+["The Little Mermaid",1989,"Animation,Fantasy","G","Ariel trades her voice for legs to see the human world."],
+["Big",1988,"Comedy","PG","A 12-year-old wakes up in a grown-up's body."],
+["Beetlejuice",1988,"Comedy,Fantasy","PG","Two ghosts hire a very chaotic bio-exorcist."],
+["Gremlins",1984,"Comedy,Fantasy","PG","Three rules for caring for Gizmo. Nobody follows them."],
+["The Karate Kid",1984,"Action,Drama","PG","Daniel learns karate from Mr. Miyagi. Wax on, wax off."],
+["Ferris Bueller's Day Off",1986,"Comedy","PG-13","Ferris skips school for the best day ever in Chicago."],
+["Willow",1988,"Fantasy,Adventure","PG","A farmer must protect a baby from an evil queen."],
+["The NeverEnding Story",1984,"Fantasy,Adventure","PG","A boy reads a book and enters the land of Fantasia."],
+["Labyrinth",1986,"Fantasy,Adventure","PG","Sarah has 13 hours to rescue her brother from the Goblin King."],
+["Batman",1989,"Action","PG-13","Batman takes on the Joker in a dark Gotham City."],
+["Top Gun",1986,"Action,Drama","PG","Maverick fights to be the best pilot at the Navy's flight school."],
+["Die Hard",1988,"Action,Thriller","R","John McClane vs. terrorists in a skyscraper on Christmas Eve."],
+["The Terminator",1984,"Action,Sci-Fi","R","A cyborg from the future hunts Sarah Connor."],
+["Aliens",1986,"Action,Sci-Fi","R","Ripley returns to the alien planet with colonial marines."],
+["Short Circuit",1986,"Sci-Fi,Comedy","PG","A military robot comes alive after a lightning strike."],
+["Superman II",1980,"Action,Adventure","PG","Superman faces three villains from Krypton."],
+["Star Trek IV: The Voyage Home",1986,"Sci-Fi,Comedy","PG","The crew travels to 1986 to save the whales."],
+["The Land Before Time",1988,"Animation,Adventure","G","Littlefoot and his dinosaur friends search for the Great Valley."],
+["Flight of the Navigator",1986,"Sci-Fi,Adventure","PG","A boy vanishes and returns eight years later in a spaceship."],
+["Romancing the Stone",1984,"Adventure,Comedy","PG","A romance novelist lands in a real jungle adventure."],
+
+["Home Alone",1990,"Comedy","PG","Kevin is left home for Christmas and defends the house from burglars."],
+["Terminator 2: Judgment Day",1991,"Action,Sci-Fi","R","The T-800 now protects John Connor from the T-1000."],
+["Jurassic Park",1993,"Adventure,Sci-Fi","PG-13","A theme park with cloned dinosaurs. What could go wrong?"],
+["Speed",1994,"Action,Thriller","R","A bus with a bomb that blows if it drops below 50 mph."],
+["The Matrix",1999,"Action,Sci-Fi","R","Neo learns the world is a simulation."],
+["The Lion King",1994,"Animation,Drama","G","Simba must take his place in the circle of life."],
+["Toy Story",1995,"Animation,Comedy","G","Woody and Buzz go from rivals to best friends."],
+["Toy Story 2",1999,"Animation,Comedy","G","The toys rescue Woody from a collector."],
+["Aladdin",1992,"Animation,Adventure","G","A street kid, a magic lamp and a very chatty genie."],
+["Beauty and the Beast",1991,"Animation,Fantasy","G","Belle finds the prince inside the Beast."],
+["Jumanji",1995,"Adventure,Fantasy","PG","A board game that makes every roll come true."],
+["Hook",1991,"Adventure,Fantasy","PG","A grown-up Peter Pan returns to Neverland to rescue his kids."],
+["Independence Day",1996,"Sci-Fi,Action","PG-13","Humanity fights back against an alien invasion on the Fourth of July."],
+["Men in Black",1997,"Sci-Fi,Comedy","PG-13","Secret agents police the aliens living on Earth."],
+["Mrs. Doubtfire",1993,"Comedy","PG-13","A dad dresses up as a nanny to stay close to his kids."],
+["The Mask",1994,"Comedy,Fantasy","PG-13","An ancient mask turns a shy bank clerk into a cartoon whirlwind."],
+["Twister",1996,"Action,Adventure","PG-13","Storm chasers race tornadoes across Oklahoma."],
+["Apollo 13",1995,"Drama,Adventure","PG","Houston, we have a problem: the mission that had to come home."],
+["Titanic",1997,"Drama","PG-13","A love story aboard the ship that couldn't sink."],
+["The Sandlot",1993,"Comedy","PG","A summer of baseball, friends and a signed ball in danger."],
+["Hocus Pocus",1993,"Comedy,Fantasy","PG","Three witches return to Salem on Halloween."],
+["Mulan",1998,"Animation,Adventure","G","Mulan disguises herself as a soldier to save her father."],
+["A Bug's Life",1998,"Animation,Comedy","G","An ant hires 'warriors' who turn out to be circus bugs."],
+["Babe",1995,"Family,Comedy","G","A little pig who wants to be a sheepdog."],
+["Free Willy",1993,"Family,Adventure","PG","A boy befriends an orca and plans to set him free."],
+["Space Jam",1996,"Animation,Comedy","PG","Michael Jordan plays basketball with the Looney Tunes against aliens."],
+["The Mummy",1999,"Adventure,Action","PG-13","A mummy wakes up in Egypt and someone has to stop it."],
+["Star Wars: Episode I – The Phantom Menace",1999,"Sci-Fi,Adventure","PG","Meet young Anakin and the podrace."],
+["The Iron Giant",1999,"Animation,Sci-Fi","PG","A boy befriends a giant robot that fell from the sky."],
+["Air Force One",1997,"Action,Thriller","R","The President fights hijackers on his own plane."],
+["Liar Liar",1997,"Comedy","PG-13","A lawyer can't tell a single lie for 24 hours."],
+["Mission: Impossible",1996,"Action,Thriller","PG-13","Ethan Hunt must clear his name with an impossible heist."],
+["GoldenEye",1995,"Action,Adventure","PG-13","James Bond stops a weaponized satellite."],
+["Hercules",1997,"Animation,Adventure","G","Hercules goes from zero to hero to win back Olympus."],
+
+["Shrek",2001,"Animation,Comedy","PG","An ogre and a donkey rescue a princess with a secret."],
+["Shrek 2",2004,"Animation,Comedy","PG","Shrek meets the in-laws in the Kingdom of Far Far Away."],
+["Finding Nemo",2003,"Animation,Adventure","G","Marlin crosses the ocean to find his son."],
+["The Incredibles",2004,"Animation,Action","PG","A family of superheroes gets back in action."],
+["Monsters, Inc.",2001,"Animation,Comedy","G","Sulley and Mike learn kids aren't dangerous after all."],
+["Harry Potter and the Sorcerer's Stone",2001,"Fantasy,Adventure","PG","Harry learns he's a wizard and arrives at Hogwarts."],
+["Harry Potter and the Prisoner of Azkaban",2004,"Fantasy,Adventure","PG","A prisoner escapes Azkaban and seems to be after Harry."],
+["The Lord of the Rings: The Fellowship of the Ring",2001,"Fantasy,Adventure","PG-13","Frodo and the Fellowship set out to destroy the One Ring."],
+["Pirates of the Caribbean: The Curse of the Black Pearl",2003,"Adventure,Action","PG-13","Jack Sparrow and a cursed pirate crew."],
+["Spider-Man",2002,"Action,Adventure","PG-13","Peter Parker learns that great power brings great responsibility."],
+["Spider-Man 2",2004,"Action,Adventure","PG-13","Peter juggles his life while Doctor Octopus shows up."],
+["Iron Man",2008,"Action,Sci-Fi","PG-13","Tony Stark builds a suit of armor and becomes a hero."],
+["The Dark Knight",2008,"Action,Thriller","PG-13","Batman faces the Joker in his toughest test."],
+["Night at the Museum",2006,"Comedy,Fantasy","PG","A night guard discovers the museum comes alive after dark."],
+["Ice Age",2002,"Animation,Comedy","PG","A mammoth, a sloth and a saber-tooth return a baby to his tribe."],
+["Cars",2006,"Animation,Comedy","G","Lightning McQueen gets stuck in a little Route 66 town."],
+["Ratatouille",2007,"Animation,Comedy","G","A rat who dreams of becoming a chef in Paris."],
+["WALL·E",2008,"Animation,Sci-Fi","G","A lonely cleanup robot falls in love and saves the planet."],
+["Up",2009,"Animation,Adventure","PG","A widower ties balloons to his house and flies to South America."],
+["Spy Kids",2001,"Action,Comedy","PG","Two siblings find out their parents are spies."],
+["National Treasure",2004,"Adventure,Thriller","PG","A map hidden on the back of the Declaration of Independence."],
+["Elf",2003,"Comedy","PG","Buddy, raised by elves, goes looking for his dad in New York."],
+["School of Rock",2003,"Comedy","PG-13","A rocker poses as a substitute teacher and starts a band."],
+["The Chronicles of Narnia: The Lion, the Witch and the Wardrobe",2005,"Fantasy,Adventure","PG","Four siblings step through a wardrobe into Narnia."],
+["Transformers",2007,"Action,Sci-Fi","PG-13","Autobots and Decepticons bring their war to Earth."],
+["Kung Fu Panda",2008,"Animation,Action","PG","Po, a clumsy panda, is chosen as the Dragon Warrior."],
+["Madagascar",2005,"Animation,Comedy","PG","Zoo animals from New York end up in the wild."],
+["Avatar",2009,"Sci-Fi,Adventure","PG-13","A marine explores Pandora through a Na'vi body."],
+["Star Trek",2009,"Sci-Fi,Action","PG-13","Kirk and Spock meet in the reboot of the saga."],
+["Gladiator",2000,"Action,Drama","R","A betrayed Roman general seeks revenge in the arena."],
+];
+
+// ===== Config =====
+const PRICE = "$3.99";
+const AFFILIATE = { amazonTag: "" };   // your Amazon Associates tracking ID, e.g. "movienight-20"
+const FREE_CUSTOM = 5;
+
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+const decadeOf = y => y>=1980&&y<1990?"80s":y>=1990&&y<2000?"90s":y>=2000&&y<2010?"00s":y>=2010&&y<2020?"10s":"other";
+const mkMovie = src => ([t,y,g,r,b]) => ({ id: slug(t)+"-"+y, t, y, g: g.split(","), r, b, d: decadeOf(y), src, cols:[src] });
+const BASE = RAW.map(mkMovie("main"));
+
+const PACKS = [
+ { id:"valentines", em:"💘", name:"Valentine's Family Night", season:{from:[2,1],to:[2,14]}, list:[
+  ["Sleepless in Seattle",1993,"Comedy,Drama","PG","A boy calls a radio show to find his widowed dad a new love."],
+  ["The Parent Trap",1998,"Comedy,Family","PG","Twins separated at birth swap places to reunite their parents."],
+  ["13 Going on 30",2004,"Comedy,Fantasy","PG-13","A girl makes a birthday wish and wakes up 30."],
+  ["Ella Enchanted",2004,"Fantasy,Comedy","PG","A girl cursed to always obey sets out to break the spell."],
+  ["Enchanted",2007,"Fantasy,Comedy","PG","A cartoon princess lands in real-life New York."],
+  ["The Princess and the Frog",2009,"Animation,Fantasy","G","Tiana kisses a frog prince in New Orleans and turns into a frog too."],
+  ["Tangled",2010,"Animation,Adventure","PG","Rapunzel leaves her tower for the first time with a charming thief."],
+  ["Gnomeo & Juliet",2011,"Animation,Comedy","G","Garden gnomes from rival yards fall in love."],
+  ["Cinderella",2015,"Fantasy,Family","PG","The live-action retelling of the glass slipper story."],
+ ]},
+ { id:"easter", em:"🐣", name:"Easter & Spring", season:{from:[3,15],to:[4,30]}, list:[
+  ["The Prince of Egypt",1998,"Animation,Drama","PG","The story of Moses, from prince to the leader of his people."],
+  ["Miss Potter",2006,"Drama,Family","PG","The true story of Beatrix Potter, creator of Peter Rabbit."],
+  ["Hop",2011,"Comedy,Family","PG","The Easter Bunny's son would rather be a rock drummer."],
+  ["Rise of the Guardians",2012,"Animation,Adventure","PG","Jack Frost teams up with the Easter Bunny, Santa and the Tooth Fairy."],
+  ["Peter Rabbit",2018,"Comedy,Family","PG","Peter and his family wage war on the new owner of the garden."],
+  ["Peter Rabbit 2: The Runaway",2021,"Comedy,Family","PG","Peter runs away to the big city and finds trouble."],
+ ]},
+ { id:"july4", em:"🎆", name:"Fourth of July", season:{from:[6,20],to:[7,7]}, list:[
+  ["1776",1972,"Drama,Family","G","The Founding Fathers argue, sing and sign the Declaration."],
+  ["Jaws",1975,"Thriller,Adventure","PG","A great white shark threatens a beach town's Fourth of July."],
+  ["An American Tail",1986,"Animation,Adventure","G","A young mouse emigrates to America and gets lost in New York."],
+  ["The Rocketeer",1991,"Action,Adventure","PG","A stunt pilot finds a jetpack and becomes a 1930s hero."],
+  ["Forrest Gump",1994,"Drama,Comedy","PG-13","One man's journey through decades of American history."],
+  ["Night at the Museum: Battle of the Smithsonian",2009,"Comedy,Fantasy","PG","Larry heads to Washington when the Smithsonian comes alive."],
+  ["Captain America: The First Avenger",2011,"Action,Sci-Fi","PG-13","A scrawny volunteer becomes America's first super soldier."],
+  ["Hidden Figures",2016,"Drama","PG","Three Black women at NASA help launch the space race."],
+  ["Hamilton",2020,"Drama,Family","PG-13","The hit musical about founding father Alexander Hamilton."],
+  ["Top Gun: Maverick",2022,"Action,Drama","PG-13","Maverick trains a new class of pilots for an impossible mission."],
+ ]},
+ { id:"halloween", em:"🎃", name:"Family Halloween", free:true, season:{from:[10,1],to:[11,2]}, includes:["hocus-pocus-1993"], list:[
+  ["The Nightmare Before Christmas",1993,"Animation,Fantasy","PG","Jack Skellington discovers Christmas Town and wants it for himself."],
+  ["Casper",1995,"Family,Fantasy","PG","A friendly ghost befriends the girl who moves into his mansion."],
+  ["Monster House",2006,"Animation,Comedy","PG","Three kids learn the creepy house across the street is alive."],
+  ["Coraline",2009,"Animation,Fantasy","PG","Coraline finds a secret door to a world that seems a little too perfect."],
+  ["Corpse Bride",2005,"Animation,Fantasy","PG","A nervous groom accidentally marries a bride from the land of the dead."],
+  ["The Addams Family",1991,"Comedy","PG-13","The creepiest, kookiest family on the block faces a fake long-lost uncle."],
+  ["Ghostbusters II",1989,"Comedy,Fantasy","PG","The team returns to fight a river of slime under New York."],
+  ["The Monster Squad",1987,"Comedy,Adventure","PG-13","A kids' club takes on Dracula, the Wolf Man and friends."],
+  ["The Witches",1990,"Fantasy,Family","PG","A boy and his grandma stumble into a convention of real witches."],
+  ["The Haunted Mansion",2003,"Comedy,Fantasy","PG","A real estate agent and his family get stuck in a haunted house."],
+  ["Hotel Transylvania",2012,"Animation,Comedy","PG","Dracula runs a monster hotel and a human checks in."],
+  ["ParaNorman",2012,"Animation,Comedy","PG","A boy who can talk to ghosts has to save his town from a curse."],
+  ["Frankenweenie",2012,"Animation,Comedy","PG","Victor brings his beloved dog back to life with a science project."],
+  ["Goosebumps",2015,"Comedy,Adventure","PG","The monsters from R.L. Stine's books escape into a real town."],
+  ["It's the Great Pumpkin, Charlie Brown",1966,"Animation,Family","NR","Linus waits all night for the Great Pumpkin while Charlie Brown goes trick-or-treating."],
+  ["Kiki's Delivery Service",1989,"Animation,Fantasy","G","A 13-year-old witch starts a delivery service on her broom."],
+  ["The Adventures of Ichabod and Mr. Toad",1949,"Animation,Family","G","Includes the legend of the Headless Horseman of Sleepy Hollow."],
+  ["Scooby-Doo",2002,"Comedy,Adventure","PG","Scooby and the gang reunite to solve a mystery on a party island."],
+  ["The Little Vampire",2000,"Family,Fantasy","PG","A new kid in Scotland befriends a young vampire."],
+  ["Halloweentown",1998,"Fantasy,Family","NR","Three siblings learn their grandma is a witch from a town where it's always Halloween."],
+  ["Wallace & Gromit: The Curse of the Were-Rabbit",2005,"Animation,Comedy","G","Wallace and Gromit hunt a giant rabbit before the big vegetable contest."],
+  ["Hotel Transylvania 2",2015,"Animation,Comedy","PG","Dracula wants to know if his grandson has any vampire in him."],
+  ["Goosebumps 2: Haunted Halloween",2018,"Comedy,Adventure","PG","A ventriloquist's dummy wakes up every monster on Halloween."],
+  ["The House with a Clock in Its Walls",2018,"Fantasy,Family","PG","A boy moves in with his warlock uncle in a house full of magic."],
+  ["The Book of Life",2014,"Animation,Adventure","PG","A young bullfighter journeys to the land of the dead on Día de Muertos."],
+  ["Arachnophobia",1990,"Comedy,Thriller","PG-13","A deadly spider arrives in a small town and starts to multiply."],
+  ["Something Wicked This Way Comes",1983,"Fantasy,Thriller","PG","A mysterious carnival comes to town and grants wishes with a catch."],
+  ["Edward Scissorhands",1990,"Fantasy,Drama","PG-13","A gentle young man with scissors for hands moves to a pastel suburb."],
+  ["Practical Magic",1998,"Fantasy,Drama","PG-13","Two witch sisters face an old family curse."],
+  ["Hocus Pocus 2",2022,"Comedy,Fantasy","PG","The Sanderson sisters return to Salem thirty years later."],
+ ]},
+ { id:"thanksgiving", em:"🦃", name:"Thanksgiving", season:{from:[11,3],to:[11,30]}, list:[
+  ["Planes, Trains and Automobiles",1987,"Comedy","R","Two mismatched travelers try to get home for Thanksgiving."],
+  ["Dutch",1991,"Comedy","PG-13","A working-class guy drives his girlfriend's snobby son home for the holiday."],
+  ["Addams Family Values",1993,"Comedy","PG-13","Wednesday stars in the most memorable summer camp Thanksgiving play ever."],
+  ["Pocahontas",1995,"Animation,Drama","G","Pocahontas meets English settlers and tries to keep the peace."],
+  ["Charlotte's Web",2006,"Family,Drama","G","A clever spider saves her pig friend Wilbur."],
+  ["The Blind Side",2009,"Drama","PG-13","A family takes in a teenager who becomes a football star."],
+  ["Fantastic Mr. Fox",2009,"Animation,Comedy","PG","A fox plans one last heist against three mean farmers."],
+  ["Free Birds",2013,"Animation,Comedy","PG","Two turkeys travel back in time to take turkey off the menu."],
+  ["Instant Family",2018,"Comedy,Drama","PG-13","A couple fosters three siblings and learns what family means."],
+ ]},
+ { id:"christmas", em:"🎄", name:"Christmas Countdown", season:{from:[12,1],to:[12,31]}, includes:["home-alone-1990","elf-2003"], list:[
+  ["Santa Claus: The Movie",1985,"Fantasy,Family","PG","How a kind woodcutter became Santa Claus."],
+  ["Prancer",1989,"Family,Drama","G","A girl nurses an injured reindeer she believes belongs to Santa."],
+  ["Jack Frost",1998,"Comedy,Fantasy","PG","A dad comes back as a snowman to make up for lost time."],
+  ["Christmas with the Kranks",2004,"Comedy","PG","A couple tries to skip Christmas. The neighborhood won't allow it."],
+  ["Fred Claus",2007,"Comedy,Family","PG","Santa's troublemaker older brother comes to help at the North Pole."],
+  ["The Star",2017,"Animation,Family","PG","A small donkey and his animal friends become part of the first Christmas."],
+  ["Noelle",2019,"Comedy,Family","G","Santa's daughter must find her brother before Christmas Eve."],
+  ["The Santa Clause",1994,"Comedy,Family","PG","A dad accidentally becomes the new Santa."],
+  ["The Santa Clause 2",2002,"Comedy,Family","G","Scott Calvin needs a Mrs. Claus before Christmas Eve."],
+  ["Jingle All the Way",1996,"Comedy,Family","PG","Two dads race across town for the year's hottest toy."],
+  ["A Christmas Carol",2009,"Animation,Fantasy","PG","Scrooge meets three ghosts in a spectacular animated version."],
+  ["Scrooged",1988,"Comedy,Fantasy","PG-13","A cynical TV boss gets visited by three very modern ghosts."],
+  ["The Muppet Christmas Carol",1992,"Family,Comedy","G","The Muppets tell Dickens' story with Michael Caine as Scrooge."],
+  ["The Grinch",2018,"Animation,Comedy","PG","The animated Grinch plots to steal Christmas from Whoville."],
+  ["How the Grinch Stole Christmas",2000,"Comedy,Fantasy","PG","The Grinch plots to steal Christmas from Whoville."],
+  ["Miracle on 34th Street",1994,"Family,Drama","PG","A department store Santa says he's the real one and goes to court."],
+  ["Klaus",2019,"Animation,Comedy","PG","A lazy postman and a toymaker start a very famous tradition."],
+  ["Arthur Christmas",2011,"Animation,Comedy","PG","Santa's youngest son has one night to deliver a forgotten gift."],
+  ["A Christmas Story",1983,"Comedy,Family","PG","Ralphie wants a Red Ryder BB gun. Everyone says he'll shoot his eye out."],
+  ["National Lampoon's Christmas Vacation",1989,"Comedy","PG-13","Clark Griswold plans the perfect family Christmas. It goes wrong."],
+  ["It's a Wonderful Life",1946,"Drama,Fantasy","PG","An angel shows George Bailey what his town would be like without him."],
+  ["Home Alone 2: Lost in New York",1992,"Comedy","PG","Kevin boards the wrong plane and has New York all to himself."],
+  ["The Polar Express",2004,"Animation,Adventure","G","A magical train takes a boy to the North Pole on Christmas Eve."],
+ ]},
+ { id:"sports", em:"🏆", name:"Sports Night", list:[
+  ["Rocky IV",1985,"Action,Drama","PG","Rocky goes to Russia to fight the giant Ivan Drago."],
+  ["Hoosiers",1986,"Drama","PG","A small-town Indiana basketball team chases the state title."],
+  ["Field of Dreams",1989,"Drama,Fantasy","PG","An Iowa farmer builds a baseball field in his cornfield."],
+  ["The Mighty Ducks",1992,"Comedy,Family","PG","A hotshot lawyer has to coach a hopeless kids' hockey team."],
+  ["Cool Runnings",1993,"Comedy","PG","Jamaica sends its first bobsled team to the Winter Olympics."],
+  ["Rookie of the Year",1993,"Comedy,Family","PG","A broken arm gives a 12-year-old a major league fastball."],
+  ["Rudy",1993,"Drama","PG","A small, stubborn kid dreams of playing football for Notre Dame."],
+  ["Little Giants",1994,"Comedy,Family","PG","A team of underdogs takes on the town's star football squad."],
+  ["Angels in the Outfield",1994,"Comedy,Family","PG","A foster kid prays for his team to win, and angels show up."],
+  ["Air Bud",1997,"Family,Comedy","PG","A golden retriever who can shoot hoops joins the school team."],
+  ["Remember the Titans",2000,"Drama","PG","A newly integrated high school football team learns to play as one."],
+  ["Miracle",2004,"Drama","PG","The 1980 U.S. hockey team takes on the Soviet Union."],
+ ]},
+ { id:"animated", em:"🏰", name:"Animated Classics", list:[
+  ["Snow White and the Seven Dwarfs",1937,"Animation,Fantasy","G","Snow White hides from the Evil Queen with seven new friends."],
+  ["Pinocchio",1940,"Animation,Fantasy","G","A wooden puppet wants to become a real boy."],
+  ["Dumbo",1941,"Animation,Family","G","A little elephant with giant ears learns he can fly."],
+  ["Bambi",1942,"Animation,Drama","G","A young deer grows up in the forest with Thumper and Flower."],
+  ["Cinderella",1950,"Animation,Fantasy","G","A fairy godmother, a pumpkin coach and a lost glass slipper."],
+  ["Alice in Wonderland",1951,"Animation,Fantasy","G","Alice follows a white rabbit into a very strange world."],
+  ["Peter Pan",1953,"Animation,Adventure","G","Wendy and her brothers fly off to Neverland."],
+  ["Lady and the Tramp",1955,"Animation,Family","G","A pampered pup and a street dog fall for each other."],
+  ["Sleeping Beauty",1959,"Animation,Fantasy","G","A princess cursed by Maleficent sleeps until true love's kiss."],
+  ["One Hundred and One Dalmatians",1961,"Animation,Comedy","G","Pongo and Perdita rescue their puppies from Cruella de Vil."],
+  ["The Jungle Book",1967,"Animation,Adventure","G","Mowgli, Baloo and Bagheera in the bare necessities of jungle life."],
+  ["The Aristocats",1970,"Animation,Comedy","G","A family of Parisian cats finds its way home with an alley cat."],
+  ["Robin Hood",1973,"Animation,Adventure","G","A fox robs from the rich and gives to the poor."],
+ ]},
+ { id:"2010s", em:"📀", name:"2010s Hits", list:[
+  ["Toy Story 3",2010,"Animation,Comedy","G","Andy leaves for college and the toys end up at a daycare."],
+  ["How to Train Your Dragon",2010,"Animation,Adventure","PG","A Viking boy befriends the dragon he was supposed to fight."],
+  ["The Avengers",2012,"Action,Sci-Fi","PG-13","Earth's mightiest heroes team up for the first time."],
+  ["Frozen",2013,"Animation,Fantasy","PG","Anna sets out to find her sister Elsa and end an endless winter."],
+  ["The LEGO Movie",2014,"Animation,Comedy","PG","An ordinary minifigure is mistaken for the hero who can save the world."],
+  ["Big Hero 6",2014,"Animation,Action","PG","A young genius and his inflatable robot form a superhero team."],
+  ["Inside Out",2015,"Animation,Comedy","PG","Joy, Sadness and friends run the mind of an 11-year-old girl."],
+  ["Star Wars: The Force Awakens",2015,"Sci-Fi,Adventure","PG-13","A scavenger and a runaway stormtrooper join the fight against the First Order."],
+  ["Zootopia",2016,"Animation,Comedy","PG","A bunny cop and a fox con artist crack a city-wide case."],
+  ["Moana",2016,"Animation,Adventure","PG","Moana sails across the ocean with the demigod Maui."],
+  ["Coco",2017,"Animation,Fantasy","PG","Miguel crosses into the Land of the Dead to learn his family's story."],
+  ["Paddington 2",2017,"Family,Comedy","PG","Paddington is framed for stealing a pop-up book."],
+  ["Jumanji: Welcome to the Jungle",2017,"Adventure,Comedy","PG-13","Four teens get sucked into a video game as its avatars."],
+  ["Spider-Man: Into the Spider-Verse",2018,"Animation,Action","PG","Miles Morales meets Spider-People from other dimensions."],
+ ]},
+];
+PACKS.forEach(p => p.movies = p.list.map(mkMovie(p.id)));
+const PACK_BY = Object.fromEntries(PACKS.map(p => [p.id, p]));
+
+const ALL_BY = new Map(BASE.concat(...PACKS.map(p => p.movies)).map(m => [m.id, m]));
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const today = () => new Date();
+const md = d => (d.getMonth()+1)*100 + d.getDate();
+const inSeason = p => !p.season || (md(today()) >= p.season.from[0]*100+p.season.from[1] && md(today()) <= p.season.to[0]*100+p.season.to[1]);
+const seasonLabel = p => `${MONTHS[p.season.from[0]-1]} ${p.season.from[1]} – ${MONTHS[p.season.to[0]-1]} ${p.season.to[1]}`;
+
+const SNACKS = ["Buttery popcorn","Nachos with cheese","Homemade pizza","Root beer floats","Movie candy mix","Indoor s'mores","Soft pretzels","Ice cream sundaes","Kettle corn","Chocolate-dipped strawberries","Pigs in a blanket","Popcorn bar with toppings"];
+const SKINS = [
+  { id:"", name:"VHS", c:["#ff3d8b","#33d6e3","#ffc23d"] },
+  { id:"arcade", name:"Arcade", c:["#3dffa0","#e9ff4a","#ff7a3d"] },
+  { id:"sunset", name:"Sunset", c:["#ff5c6c","#ffa94d","#ffd166"] },
+  { id:"ice", name:"Ice", c:["#7c8cff","#5ce1ff","#c8e6ff"] },
+];
+const RC = { G:"var(--green)", PG:"var(--cyan)", "PG-13":"var(--amber)", R:"var(--mag)", NR:"var(--muted)" };
+const GENRES = ["Action","Adventure","Comedy","Sci-Fi","Animation","Fantasy","Drama","Thriller","Family"];
+const DEC_LABEL = { "80s":"80s", "90s":"90s", "00s":"2000s", "10s":"2010s" };
+
+const state = {
+  dec:"", gen:"", fam:"nor", col:"", inclSeen:false, view:"spin", q:"", last:null, lastSnack:null, snack:false,
+  personal:{ marks:{}, custom:[] }, shared:null, pro:false, skin:"", packs:["halloween"], holOff:[], family:null, lang:"en",
+};
+const $ = id => document.getElementById(id);
+const list = () => (state.family && state.shared) ? state.shared : state.personal;
+const mk = id => list().marks[id] || { want:false, seen:false };
+let MOVIES = [];
+const packOn = p => (p.free || state.pro) && (p.season ? !state.holOff.includes(p.id) : state.packs.includes(p.id));
+const livePack = p => packOn(p) && inSeason(p);
+function rebuild(){
+  const off = new Set(PACKS.filter(p => p.includes && !inSeason(p)).flatMap(p => p.includes));
+  const tagged = {};
+  PACKS.filter(p => p.includes && livePack(p)).forEach(p => p.includes.forEach(id => (tagged[id] = tagged[id]||[]).push(p.id)));
+  MOVIES = BASE.filter(m => !off.has(m.id)).map(m => tagged[m.id] ? { ...m, cols:["main", ...tagged[m.id]] } : m)
+    .concat(...PACKS.filter(livePack).map(p => p.movies),
+      list().custom.map(c => ({ ...c, src:"mine", cols:["mine"], mine:true, d: decadeOf(c.y) })));
+}
+const findMovie = id => MOVIES.find(x => x.id===id) || ALL_BY.get(id) || null;
+
+// ===== Storage: each person's account when possible, otherwise this device =====
+const LS = "mnr-v3";
+function cleanMarks(m){ const o={}; for(const k in m){ if(m[k]&&(m[k].want||m[k].seen)){ o[k]={want:!!m[k].want,seen:!!m[k].seen}; if(m[k].seen && m[k].seenAt) o[k].seenAt=m[k].seenAt; } } return o; }
+function loadLocal(){
+  try{
+    const v = JSON.parse(localStorage.getItem(LS)||"null");
+    if(v){ Object.assign(state, { personal: v.personal||state.personal, pro: !!v.pro, skin: v.skin||"", packs: v.packs||["halloween"], holOff: v.holOff||[], lang: v.lang||"en" }); return; }
+    const v2 = JSON.parse(localStorage.getItem("mnr-v2")||"null");
+    if(v2){ state.personal = { marks: v2.marks||{}, custom: v2.custom||[] }; return; }
+    const v1 = JSON.parse(localStorage.getItem("mnr-marks")||"null");
+    if(v1) state.personal = { marks: v1, custom: [] };
+  }catch(e){}
+}
+function saveLocal(){ try{ localStorage.setItem(LS, JSON.stringify({ personal: state.personal, pro: state.pro, skin: state.skin, packs: state.packs, holOff: state.holOff, lang: state.lang })) }catch(e){} }
+let syncReady = false, wasSynced = false, syncDismissed = false;
+function syncLabel(){
+  if(P) wasSynced = true;
+  $("syncAlert").hidden = true;
+}
+loadLocal();
+
+let db = null, P = null, F = null, unF = null;
+let dirtyP = false, dirtyF = false, saving = false, timer = null;
+
+function applyP(v){
+  state.personal = v.personal ? { marks:{...(v.personal.marks||{})}, custom:(v.personal.custom||[]).map(c=>({...c})), votes: JSON.parse(JSON.stringify(v.personal.votes||{})) }
+                              : { marks:{...(v.marks||{})}, custom:(v.custom||[]).map(c=>({...c})), votes:{} };
+  if(v.lang) state.lang = v.lang;
+  state.pro = !!v.pro; state.skin = v.skin||"";
+  state.packs = Array.isArray(v.packs) ? v.packs.slice() : ["halloween"];
+  state.holOff = Array.isArray(v.holOff) ? v.holOff.slice() : [];
+  setFamily(v.family||null);
+}
+function pBody(){ return { lang: state.lang, personal:{ marks: cleanMarks(state.personal.marks), custom: state.personal.custom, votes: state.personal.votes||{} }, pro: state.pro, skin: state.skin, packs: state.packs, holOff: state.holOff, family: state.family, at: Date.now() }; }
+
+function setFamily(code){
+  if(code === state.family && (F || !code)) return;
+  if(unF){ unF(); unF = null; }
+  state.family = code; state.shared = null; F = null;
+  if(code && db){
+    F = db.doc("families/"+code);
+    unF = F.onSnapshot(s => {
+      if(dirtyF || saving) return;
+      if(!s.exists){ state.shared = null; }
+      else { const v = s.data(); state.shared = { marks:{...(v.marks||{})}, custom:(v.custom||[]).map(c=>({...c})), votes: JSON.parse(JSON.stringify(v.votes||{})), name: v.name||"Family list" }; }
+      renderAll();
+    }, () => { state.shared = null; renderAll(); });
+  }
+}
+
+(async () => {
+  try{
+    if(!window.claude?.use) return;
+    const [dbns, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if(!dbns || !user) return;
+    const uid = await user.id();
+    if(!uid) return;
+    db = dbns;
+    const ref = db.doc("data/users/"+uid+"/state");
+    const first = await ref.get();
+    if(first.exists) applyP(first.data());
+    else {
+      // first visit with an account: bring over this device's list (and, for the owner, the old shared list)
+      try{
+        if(await user.isOwner()){
+          const old = await db.collection("marks").get();
+          old.docs.forEach(d => { const v=d.data(); if(v) state.personal.marks[d.id] = { want:!!v.want, seen:!!v.seen } });
+        }
+      }catch(e){}
+      try{ await ref.set(pBody()); }
+      catch(e){ db = null; return; }    // this viewer can't save to an account here: keep the list on this device
+    }
+    P = ref; saveLocal(); renderAll();
+    ref.onSnapshot(s => {
+      if(dirtyP || saving || !s.exists) return;
+      applyP(s.data()); saveLocal(); renderAll();
+    }, () => { P = null; syncDismissed = false; renderAll(); });
+  }catch(e){ P = null; }
+  finally{ syncReady = true; setTimeout(renderAll, 0); }
+})();
+
+function persist(kind){            // kind: "list" or "settings"
+  saveLocal();
+  if(kind==="list" && state.family && state.shared && F) dirtyF = true; else dirtyP = true;
+  if(!P){ dirtyP = dirtyF = false; return; }
+  clearTimeout(timer); timer = setTimeout(flush, 400);
+}
+async function flush(){
+  if(saving){ timer = setTimeout(flush, 300); return; }
+  saving = true;
+  const doP = dirtyP, doF = dirtyF; dirtyP = dirtyF = false;
+  try{
+    if(doP && P) await P.set(pBody());
+    if(doF && F && state.shared) await F.set({ name: state.shared.name, marks: cleanMarks(state.shared.marks), custom: state.shared.custom, votes: state.shared.votes||{}, at: Date.now() });
+  }catch(e){
+    if(e && e.code==="invalid_argument" && doP && !doF){ P = null; syncDismissed = false; }
+    toast("Couldn't save. Check your connection.");
+  }
+  saving = false; renderAll();
+}
+
+// ===== Actions =====
+function toggle(id, key){
+  const marks = list().marks;
+  const m = Object.assign({want:false, seen:false}, marks[id]);
+  m[key] = !m[key];
+  if(key==="seen" && m.seen){ m.want = false; m.seenAt = Date.now(); }
+  if(key==="seen" && !m.seen) delete m.seenAt;
+  marks[id] = m;
+  persist("list"); renderAll();
+  toast(key==="want" ? (m.want?"Added to favorites":"Removed from favorites") : (m.seen?"Marked as watched":"Removed from watched"));
+}
+function addMovie(c){ list().custom.push(c); persist("list"); renderAll(); }
+function removeMovie(id){
+  const L = list(); L.custom = L.custom.filter(c => c.id!==id); delete L.marks[id];
+  if(state.last===id){ state.last=null; $("revealSlot").replaceChildren(); }
+  persist("list"); renderAll(); toast("Movie removed");
+}
+function goPro(msg){ if(msg) toast(msg); showView("pro"); }
+
+// ===== Filters =====
+GENRES.forEach(g => ["fGen","aG","aG2"].forEach(id => { const o=document.createElement("option"); o.value=g; o.textContent=g; $(id).append(o); }));
+function onFilter(){
+  state.col = $("fCol").value; state.dec = $("fDec").value; state.gen = $("fGen").value; state.fam = $("fFam").value;
+  renderAll();
+}
+["fCol","fDec","fGen","fFam"].forEach(id => $(id).addEventListener("change", onFilter));
+$("fClear").onclick = () => { $("fCol").value=""; $("fDec").value=""; $("fGen").value=""; $("fFam").value="nor"; onFilter(); };
+function renderFilters(){
+  const opts = [["","All movies"],["main","The classics"]];
+  PACKS.filter(livePack).forEach(p => opts.push([p.id, p.em+" "+p.name]));
+  if(list().custom.length) opts.push(["mine","➕ Added by you"]);
+  if(!opts.some(o => o[0]===state.col)) state.col = "";
+  const sel = $("fCol"); sel.replaceChildren(...opts.map(([v,l]) => { const o=document.createElement("option"); o.value=v; o.textContent=l; return o; }));
+  sel.value = state.col;
+  $("fCol").classList.toggle("active", !!state.col);
+  $("fDec").classList.toggle("active", !!state.dec);
+  $("fGen").classList.toggle("active", !!state.gen);
+  $("fFam").classList.toggle("active", state.fam!=="all");
+  $("fClear").hidden = !state.col && !state.dec && !state.gen && state.fam==="nor";
+}
+function passes(m){
+  if(state.col && !m.cols.includes(state.col)) return false;
+  if(state.dec && m.d!==state.dec) return false;
+  if(state.gen && !m.g.includes(state.gen)) return false;
+  if(state.fam==="nor" && m.r==="R") return false;
+  if(state.fam==="kids" && !(m.r==="G"||m.r==="PG")) return false;
+  return true;
+}
+function spinPool(){ return MOVIES.filter(m => passes(m) && (state.inclSeen || !mk(m.id).seen)); }
+
+// ===== Lists =====
+function tapeRow(m){
+  const k = mk(m.id);
+  const el = document.createElement("div");
+  el.className = "tape"+(k.seen?" is-seen":""); el.style.setProperty("--rc", RC[m.r]||"var(--muted)");
+  const pack = PACK_BY[m.src];
+  el.innerHTML = `<div class="spine"></div><div class="info"><h3></h3><div class="sub"><b>${m.y}</b><span>${m.r}</span><span class="gs"></span>${m.mine?'<span class="mine">Yours</span>':""}${pack?`<span class="srcpill">${pack.em}</span>`:""}</div></div>
+    <div class="tbtns">${m.mine?'<button class="ib del" aria-label="Remove movie">✕</button>':""}<button class="ib want" aria-label="Favorite" aria-pressed="${k.want}">♥</button><button class="ib seen" aria-label="Watched" aria-pressed="${k.seen}">✓</button></div>`;
+  el.querySelector("h3").textContent = m.t;
+  el.querySelector(".gs").textContent = m.g.join(" · ");
+  el.querySelector(".want").onclick = () => toggle(m.id,"want");
+  el.querySelector(".seen").onclick = () => toggle(m.id,"seen");
+  const del = el.querySelector(".del");
+  if(del){
+    let armed = false, t;
+    del.onclick = () => {
+      if(armed){ clearTimeout(t); removeMovie(m.id); return; }
+      armed = true; del.classList.add("armed"); del.textContent = "Delete?";
+      t = setTimeout(() => { armed=false; del.classList.remove("armed"); del.textContent="✕"; }, 3000);
+    };
+  }
+  return el;
+}
+function fill(listId, items, emptyHtml){
+  const l = $(listId); l.replaceChildren();
+  if(!items.length){ const e=document.createElement("div"); e.className="empty"; e.innerHTML=emptyHtml; l.append(e); return; }
+  items.forEach(m => l.append(tapeRow(m)));
+}
+function renderLists(){
+  const q = state.q.trim().toLowerCase();
+  const all = MOVIES.filter(m => passes(m) && (!q || m.t.toLowerCase().includes(q))).sort((a,b)=>a.y-b.y||a.t.localeCompare(b.t));
+  $("cAll").textContent = all.length+" of "+MOVIES.length;
+  fill("lAll", all, "<strong>Nothing matches</strong>Try a different decade or genre.");
+  const want = MOVIES.filter(m => mk(m.id).want);
+  const seen = MOVIES.filter(m => mk(m.id).seen);
+  $("cWant").textContent = want.length+" movies"; $("cSeen").textContent = seen.length+" movies";
+  $("nWant").textContent = want.length||""; $("nSeen").textContent = seen.length||"";
+  fill("lWant", want, "<strong>No favorites yet</strong>Tap ♥ in the catalog or on a roulette pick to save a movie.");
+  fill("lSeen", seen, "<strong>Nothing watched yet</strong>Tap ✓ when you finish a movie and it won't come up in the roulette again.");
+  $("resetBar").hidden = seen.length===0;
+  const n = list().custom.length, where = state.family && state.shared ? "Movies you add go to your family list." : "Movies you add are only in your catalog.";
+  $("addNote").textContent = where + (state.pro ? " Pro: unlimited." : ` Free version: ${n} of ${FREE_CUSTOM} used.`);
+}
+function renderPool(){
+  const p = spinPool();
+  $("pool").textContent = p.length ? `${p.length} tapes` : "No movies match these filters";
+  $("spinBtn").disabled = p.length===0 || spinning;
+  $("snackBtn").setAttribute("aria-pressed", state.pro && state.snack);
+  $("snackBtn").classList.toggle("on", state.pro && state.snack);
+}
+
+// ===== Roulette =====
+let spinning = false;
+const ROW = 44;
+const rnd = a => a[Math.floor(Math.random()*a.length)];
+function spin(){
+  const pool = spinPool(); if(!pool.length || spinning) return;
+  spinning = true; renderPool(); $("idle").hidden = true; $("revealSlot").replaceChildren(); $("vetoSlot").replaceChildren();
+  const pick = rnd(pool);
+  const n = 34, seq = [];
+  for(let i=0;i<n;i++) seq.push(rnd(pool));
+  seq.push(pick, rnd(pool));
+  const reel = $("reel"); reel.replaceChildren();
+  [rnd(pool), ...seq].forEach(m => { const d=document.createElement("div"); d.textContent=m.t; reel.append(d); });
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const target = n * ROW, dur = reduce ? 1 : 3200, t0 = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 4);
+  function frame(now){
+    const t = Math.min(1, (now - t0) / dur);
+    reel.style.transform = `translateY(${-target*ease(t)}px)`;
+    const secs = Math.floor(t*dur/40);
+    $("clock").textContent = "SP 0:"+String(Math.floor(secs/60)).padStart(2,"0")+":"+String(secs%60).padStart(2,"0");
+    if(t<1) requestAnimationFrame(frame);
+    else { spinning = false; landOn(pick.id); }
+  }
+  requestAnimationFrame(frame);
+}
+function bringIntoView(el){
+  if(!el) return;
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
+}
+function landOn(id, label){
+  state.lastLabel = label || null;
+  state.last = id; state.lastSnack = (state.pro && state.snack) ? rnd(SNACKS) : null;
+  renderPool(); renderReveal(id, true); bringIntoView($("revealSlot").firstElementChild);
+}
+function watchLinks(m){
+  const tag = AFFILIATE.amazonTag;
+  const amz = `https://www.amazon.com/s?k=${encodeURIComponent(m.t+" "+m.y)}&i=instant-video${tag?"&tag="+encodeURIComponent(tag):""}`;
+  const apple = `https://tv.apple.com/search?term=${encodeURIComponent(m.t)}`;
+  const jw = `https://www.justwatch.com/us/search?q=${encodeURIComponent(m.t)}`;
+  return `<div class="watch"><span class="wl">WHERE TO WATCH</span>
+    <div class="links"><a href="${amz}" target="_blank" rel="noopener sponsored">Rent on Prime Video</a><a href="${apple}" target="_blank" rel="noopener">Apple TV</a><a href="${jw}" target="_blank" rel="noopener">Streaming guide</a></div>
+    ${tag?'<p class="disc">As an Amazon Associate, Movie Night Roulette earns from qualifying purchases.</p>':""}</div>`;
+}
+function renderReveal(id, animate){
+  const m = findMovie(id);
+  if(!m){ state.last = null; $("revealSlot").replaceChildren(); return; }
+  const k = mk(id);
+  const c = document.createElement("article");
+  c.className = "reveal"+(animate?" pop":""); c.style.setProperty("--rc", RC[m.r]||"var(--muted)");
+  const pack = PACK_BY[m.src];
+  c.innerHTML = `<div class="eyebrow">${state.lastLabel || `TONIGHT'S PICK · ${DEC_LABEL[m.d]||m.y}${pack?" · "+pack.em+" "+pack.name.toUpperCase():""}`}</div><h2></h2>
+    <div class="meta"><span class="rate">${m.r}</span><span class="tag">${m.y}</span>${m.g.map(g=>`<span class="tag">${g}</span>`).join("")}</div>
+    <p class="blurb" data-raw></p>
+    ${state.lastSnack?'<div class="snack">🍿 Snack suggestion: <span class="sn"></span></div>':""}
+    <div class="actions">
+      <button class="btn solid" data-a="seen" aria-pressed="${k.seen}">${k.seen?"✓ Watched":"✓ We watched it"}</button>
+      <button class="btn" data-a="want" aria-pressed="${k.want}">${k.want?"♥ Favorite":"♥ Add to favorites"}</button>
+      <button class="btn" data-a="again">🎲 Spin again</button>
+    </div>
+    ${watchLinks(m)}`;
+  c.querySelector("h2").textContent = m.t; c.querySelector(".blurb").textContent = blurbOf(m);
+  if(state.lastSnack) c.querySelector(".sn").textContent = state.lastSnack;
+  c.querySelector('[data-a="seen"]').onclick = () => toggle(id,"seen");
+  c.querySelector('[data-a="want"]').onclick = () => toggle(id,"want");
+  c.querySelector('[data-a="again"]').onclick = spin;
+  $("revealSlot").replaceChildren(c);
+}
+
+// ===== Veto mode (Pro) =====
+function startVeto(){
+  if(!state.pro) return goPro("Veto mode is part of Pro");
+  const pool = spinPool().slice();
+  if(pool.length < 2) return toast("Need at least 2 movies for veto mode");
+  const picks = [];
+  while(picks.length < Math.min(5, pool.length)){ picks.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  $("revealSlot").replaceChildren(); state.last = null;
+  const box = document.createElement("div"); box.className = "veto";
+  box.innerHTML = `<h3>✕ Veto mode</h3><p>Pass the phone. Each person knocks out one movie until one is left.</p><div class="vgrid"></div><div><button class="lnk" data-x>Cancel</button></div>`;
+  const grid = box.querySelector(".vgrid");
+  let left = picks.length;
+  picks.forEach(m => {
+    const r = document.createElement("div"); r.className = "vcard"; r.dataset.id = m.id; r.style.setProperty("--rc", RC[m.r]||"var(--muted)");
+    r.innerHTML = `<div class="spine"></div><div class="info"><b></b><small>${m.y} · ${m.r}</small></div><button class="vx">✕ Veto</button>`;
+    r.querySelector("b").textContent = m.t;
+    r.querySelector(".vx").onclick = () => {
+      if(r.dataset.out) return;
+      r.dataset.out = "1"; r.classList.add("out"); left--;
+      setTimeout(() => {
+        r.remove();
+        const remaining = [...grid.querySelectorAll(".vcard")];
+        if(remaining.length === 1){
+          $("vetoSlot").replaceChildren(); landOn(remaining[0].dataset.id);
+        }
+      }, 260);
+    };
+    grid.append(r);
+  });
+  box.querySelector("[data-x]").onclick = () => $("vetoSlot").replaceChildren();
+  $("vetoSlot").replaceChildren(box); bringIntoView(box);
+}
+
+// ===== Vote mode (Pro) =====
+function dealPicks(n){
+  const pool = spinPool().slice(), picks = [];
+  while(picks.length < Math.min(n, pool.length)) picks.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  return picks;
+}
+function startVote(){
+  if(!state.pro) return goPro("Vote mode is part of Pro");
+  if(spinPool().length < 2) return toast("Need at least 2 movies for vote mode");
+  $("revealSlot").replaceChildren(); state.last = null;
+  let people = 4;
+  const box = document.createElement("div"); box.className = "veto";
+  const slot = () => $("vetoSlot").replaceChildren(box);
+  const cancel = '<div><button class="lnk" data-x>Cancel</button></div>';
+  const wireCancel = () => { const x = box.querySelector("[data-x]"); if(x) x.onclick = () => $("vetoSlot").replaceChildren(); };
+
+  function askPeople(){
+    box.innerHTML = `<h3>🗳️ Vote mode</h3><p>How many people are voting tonight?</p>
+      <div class="stepper"><button data-m aria-label="Fewer people">−</button><output>${people}</output><button data-p aria-label="More people">+</button></div>
+      <div class="vrow"><button class="fsave" data-go>Deal the movies</button><button class="lnk" data-x>Cancel</button></div>`;
+    const out = box.querySelector("output");
+    box.querySelector("[data-m]").onclick = () => { people = Math.max(2, people-1); out.textContent = people; };
+    box.querySelector("[data-p]").onclick = () => { people = Math.min(10, people+1); out.textContent = people; };
+    box.querySelector("[data-go]").onclick = () => { const picks = dealPicks(Math.min(5, Math.max(3, people))); turn(picks, Array(picks.length).fill(0), 1); };
+    wireCancel();
+  }
+  function turn(picks, votes, n){
+    bringIntoView(box);
+    box.innerHTML = `<h3>🗳️ Vote mode</h3><div class="vturn">VOTER ${n} OF ${people}</div><p>Tap your favorite. Nobody else should peek.</p><div class="vgrid"></div>${cancel}`;
+    const grid = box.querySelector(".vgrid");
+    picks.forEach((m, i) => {
+      const r = document.createElement("div"); r.className = "vcard"; r.style.setProperty("--rc", RC[m.r]||"var(--muted)");
+      r.innerHTML = `<div class="spine"></div><div class="info"><b></b><small>${m.y} · ${m.r}</small></div><button class="vv">Vote</button>`;
+      r.querySelector("b").textContent = m.t;
+      r.querySelector(".vv").onclick = () => { votes[i]++; n < people ? handoff(picks, votes, n+1) : results(picks, votes); };
+      grid.append(r);
+    });
+    wireCancel();
+  }
+  function handoff(picks, votes, next){
+    bringIntoView(box);
+    box.innerHTML = `<h3>🗳️ Vote saved</h3><p>Pass the phone to voter ${next}.</p>
+      <div class="vrow"><button class="fsave" data-n>I'm voter ${next}, show the movies</button><button class="lnk" data-x>Cancel</button></div>`;
+    box.querySelector("[data-n]").onclick = () => turn(picks, votes, next);
+    wireCancel();
+  }
+  function results(picks, votes){
+    bringIntoView(box);
+    const top = Math.max(...votes);
+    const tied = picks.filter((m, i) => votes[i] === top);
+    const winner = rnd(tied);
+    { const Lst = list(), Y = String(today().getFullYear()); Lst.votes = Lst.votes || {}; Lst.votes[Y] = Lst.votes[Y] || {};
+      picks.forEach((m, i) => { if(votes[i]) Lst.votes[Y][m.id] = (Lst.votes[Y][m.id]||0) + votes[i]; }); persist("list"); }
+    const order = picks.map((m, i) => ({ m, v: votes[i] })).sort((a, b) => b.v - a.v);
+    box.innerHTML = `<h3>🗳️ The votes are in</h3>${tied.length > 1 ? `<p>It's a tie between ${tied.length} movies. The roulette broke it.</p>` : ""}<div class="tally"></div>
+      <div class="vrow"><button class="fsave" data-w>See tonight's pick</button></div>`;
+    const t = box.querySelector(".tally");
+    order.forEach(({ m, v }) => {
+      const r = document.createElement("div"); r.className = "trow" + (m === winner ? " win" : "");
+      r.innerHTML = `<span></span><span>${v} vote${v === 1 ? "" : "s"}</span><div class="bar"><i style="width:${people ? Math.round(v / people * 100) : 0}%"></i></div>`;
+      r.querySelector("span").textContent = (m === winner ? "🏆 " : "") + m.t;
+      t.append(r);
+    });
+    box.querySelector("[data-w]").onclick = () => { $("vetoSlot").replaceChildren(); landOn(winner.id); };
+  }
+  askPeople(); slot(); bringIntoView(box);
+}
+
+// ===== Pro tab =====
+function renderPro(){
+  const hero = $("proHero");
+  hero.className = "prohero"+(state.pro?" owned":"");
+  hero.innerHTML = state.pro
+    ? `<h2>You have Pro</h2><p>Every pack, the family list, holiday packs, the family list, veto and vote modes, snack suggestions and themes are unlocked. Thanks for supporting movie night.</p>`
+    : `<h2>Movie Night Pro</h2><div class="price">${PRICE} once · no subscription</div>
+       <p>Holiday and theme packs, Halloween and Christmas countdowns, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.</p>
+       <button class="buy" id="buyPro">Unlock Pro</button>
+       <span class="note">Preview: payments arrive with the App Store version. Unlocking here is free so you can try everything.</span>`;
+  const buy = $("buyPro");
+  if(buy) buy.onclick = () => { state.pro = true; persist("settings"); renderAll(); toast("Pro unlocked"); };
+  $("proOff").hidden = !state.pro;
+
+  const packRow = p => {
+    const locked = !p.free && !state.pro, on = packOn(p);
+    const when = p.season ? (inSeason(p) ? '<span class="insea">In season now</span>' : `Plays ${seasonLabel(p)}`) : "";
+    const r = document.createElement("div"); r.className = "pack";
+    r.innerHTML = `<span class="em">${p.em}</span><div><b>${p.name}</b><small>${p.movies.length + (p.includes?p.includes.length:0)} movies${p.free?" · Free":""}${locked?' · <span class="lock">PRO</span>':""}${when?"<br>"+when:""}</small></div>
+      <button class="sw" role="switch" aria-checked="${on}" aria-label="${p.name}"></button>`;
+    r.querySelector(".sw").onclick = () => {
+      if(locked) return toast("Unlock Pro to add this pack");
+      if(p.season) state.holOff = on ? state.holOff.concat(p.id) : state.holOff.filter(x=>x!==p.id);
+      else state.packs = on ? state.packs.filter(x=>x!==p.id) : state.packs.concat(p.id);
+      persist("settings"); renderAll();
+      toast(on ? `${p.name} turned off` : (p.season && !inSeason(p) ? `${p.name} will play ${seasonLabel(p)}` : `${p.name} added to the roulette`));
+    };
+    return r;
+  };
+  $("holList").replaceChildren(...PACKS.filter(p => p.season).map(packRow));
+  $("packList").replaceChildren(...PACKS.filter(p => !p.season).map(packRow));
+  renderCountdown();
+
+  const sk = $("skinList"); sk.replaceChildren();
+  SKINS.forEach(s => {
+    const b = document.createElement("button"); b.className = "skin";
+    b.setAttribute("aria-pressed", (state.pro ? state.skin : "") === s.id);
+    b.innerHTML = `<span class="dots">${s.c.map(c=>`<i style="background:${c}"></i>`).join("")}</span>${s.name}`;
+    b.onclick = () => { if(!state.pro && s.id) return toast("Color themes are part of Pro"); state.skin = s.id; persist("settings"); renderAll(); };
+    sk.append(b);
+  });
+
+  renderFamily();
+}
+function renderFamily(){
+  const box = $("famBox"); box.replaceChildren();
+  if(!P){
+    box.innerHTML = `<p>Family lists are coming soon with accounts. For now, your lists are saved on this phone.</p>`;
+    return;
+  }
+  if(state.family){
+    const loaded = !!state.shared;
+    box.innerHTML = `<p class="ok">${loaded ? "You're on a family list. Share this code so others can join:" : "Connecting to your family list…"}</p>
+      <div class="famrow" style="align-items:center"><span class="code"></span><button class="copy" data-c>Copy code</button></div>
+      <div class="famrow"><button class="lnk" data-leave>Leave family list</button></div>`;
+    box.querySelector(".code").textContent = state.family;
+    box.querySelector("[data-c]").onclick = async e => {
+      try{ await navigator.clipboard.writeText(state.family); toast("Code copied"); }
+      catch(err){ const r=document.createRange(); r.selectNodeContents(box.querySelector(".code")); const s=getSelection(); s.removeAllRanges(); s.addRange(r); toast("Code selected, copy it"); }
+    };
+    box.querySelector("[data-leave]").onclick = () => { setFamily(null); persist("settings"); renderAll(); toast("Back to your own list"); };
+    return;
+  }
+  box.innerHTML = `<div class="famrow"><input id="famCode" maxlength="6" placeholder="Have a code? Enter it" autocomplete="off" autocapitalize="characters"><button class="copy" data-join>Join</button></div>
+    <p class="bad" data-err hidden></p>
+    <div class="famrow"><button class="fsave" data-new>Start a family list</button></div>
+    <p>Starting one copies your current favorites, watched list and added movies into it.</p>`;
+  const err = msg => { const e = box.querySelector("[data-err]"); e.textContent = msg; e.hidden = !msg; };
+  box.querySelector("[data-join]").onclick = async () => {
+    const code = box.querySelector("#famCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(code.length !== 6) return err("Codes have 6 letters and numbers.");
+    try{
+      const s = await db.doc("families/"+code).get();
+      if(!s.exists) return err("No family list uses that code. Check it with whoever shared it.");
+      setFamily(code); persist("settings"); renderAll(); toast("Joined the family list");
+    }catch(e){ err("Couldn't reach the family list. Try again."); }
+  };
+  box.querySelector("[data-new]").onclick = async () => {
+    if(!state.pro) return toast("Starting a family list is part of Pro");
+    const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    try{
+      let code, tries = 0;
+      do{ code = Array.from({length:6}, () => A[Math.floor(Math.random()*A.length)]).join(""); tries++; }
+      while((await db.doc("families/"+code).get()).exists && tries < 5);
+      await db.doc("families/"+code).set({ name:"Family list", marks: cleanMarks(state.personal.marks), custom: state.personal.custom, at: Date.now() });
+      setFamily(code); persist("settings"); renderAll(); toast("Family list started");
+    }catch(e){ err("Couldn't start a family list. Try again."); }
+  };
+}
+
+// ===== Countdown calendars (Pro) =====
+const idOf = (t, y) => slug(t) + "-" + y;
+const CD = {
+  halloween: { id:"halloween", em:"🎃", name:"Halloween Countdown", nameEs:"Cuenta regresiva de Halloween", month:9, mon:"October", monEs:"octubre", days:31, ids: [
+    ["It's the Great Pumpkin, Charlie Brown",1966],["Kiki's Delivery Service",1989],["The Adventures of Ichabod and Mr. Toad",1949],["Casper",1995],
+    ["Scooby-Doo",2002],["The Little Vampire",2000],["Halloweentown",1998],["Wallace & Gromit: The Curse of the Were-Rabbit",2005],
+    ["Hotel Transylvania",2012],["Hotel Transylvania 2",2015],["The Witches",1990],["Monster House",2006],["Frankenweenie",2012],
+    ["Goosebumps",2015],["Goosebumps 2: Haunted Halloween",2018],["The House with a Clock in Its Walls",2018],["The Haunted Mansion",2003],
+    ["Ghostbusters II",1989],["The Book of Life",2014],["ParaNorman",2012],["Corpse Bride",2005],["Coraline",2009],["The Addams Family",1991],
+    ["The Monster Squad",1987],["Arachnophobia",1990],["Something Wicked This Way Comes",1983],["Edward Scissorhands",1990],
+    ["Practical Magic",1998],["Hocus Pocus 2",2022],["The Nightmare Before Christmas",1993],["Hocus Pocus",1993],
+  ].map(([t,y]) => idOf(t,y)) },
+  christmas: { id:"christmas", em:"🎄", name:"Christmas Countdown", nameEs:"Cuenta regresiva de Navidad", month:11, mon:"December", monEs:"diciembre", days:25,
+    ids: [...PACK_BY.christmas.movies.map(m => m.id).slice(0,21), "home-alone-2-lost-in-new-york-1992", "home-alone-1990", "the-polar-express-2004", "elf-2003"] },
+};
+const L = (en, es) => state.lang === "es" ? es : en;
+function cdNight(c){ const d = today(); return d.getMonth()===c.month && d.getDate()<=c.days ? d.getDate() : 0; }
+function openNight(c, n){
+  if(!state.pro) return goPro(L(`The ${c.name} is part of Pro`, `La ${c.nameEs} es parte de Pro`));
+  const tonight = cdNight(c), id = c.ids[n-1];
+  if(tonight && n > tonight) return toast(L(`Night ${n} opens on ${c.mon} ${n}`, `La noche ${n} se abre el ${n} de ${c.monEs}`));
+  showView("spin"); $("vetoSlot").replaceChildren();
+  const tag = tonight ? (n===tonight ? L("TONIGHT","ESTA NOCHE") : L("NIGHT ","NOCHE ")+n) : L("SNEAK PEEK · NIGHT ","ADELANTO · NOCHE ")+n;
+  landOn(id, `${c.em} ${L(c.name, c.nameEs).toUpperCase()} · ${tag} ${L("OF","DE")} ${c.days}`);
+}
+function renderCountdown(){
+  Object.values(CD).forEach(c => {
+    const g = $("cal-"+c.id); if(!g) return;
+    const tonight = cdNight(c);
+    $("calnote-"+c.id).textContent = tonight
+      ? L(`Tonight is night ${tonight}. Open a door to see its movie.`, `Hoy es la noche ${tonight}. Abre una puerta para ver su película.`)
+      : L(`Starts ${c.mon} 1. Until then, tap any door for a sneak peek.`, `Empieza el 1 de ${c.monEs}. Mientras tanto, toca cualquier puerta para ver un adelanto.`);
+    g.replaceChildren(...c.ids.map((id, i) => {
+      const n = i+1, m = findMovie(id), seen = mk(id).seen;
+      const b = document.createElement("button");
+      const st = !tonight ? "peek" : n < tonight ? "past" : n===tonight ? "now" : "future";
+      b.className = "door " + st + (seen ? " seen" : "");
+      b.innerHTML = `<span class="dn" data-raw>${n}</span><span class="dt" data-raw></span>`;
+      b.querySelector(".dt").textContent = st==="future" ? "🔒" : seen ? "✓" : (st==="now" ? L("Tonight","Hoy") : "");
+      b.setAttribute("aria-label", L("Night ","Noche ") + n + (st==="future" ? L(", locked",", cerrada") : ": " + (m ? m.t : "")));
+      b.onclick = () => openNight(c, n);
+      return b;
+    }));
+  });
+}
+function renderBanner(){
+  const el = $("banner"); el.hidden = false;
+  const c = Object.values(CD).find(x => cdNight(x));
+  const live = PACKS.filter(p => p.season && livePack(p) && inSeason(p));
+  const Y = reviewYear();
+  if(c && state.pro){
+    const n = cdNight(c), m = findMovie(c.ids[n-1]);
+    el.innerHTML = `<div><b data-raw></b><span data-raw></span></div><button class="bbtn" data-raw></button>`;
+    el.querySelector("b").textContent = `${c.em} ${L(c.name, c.nameEs)} · ${L("Night","Noche")} ${n}`;
+    el.querySelector("span").textContent = m ? m.t : "";
+    el.querySelector("button").textContent = L("Open tonight's movie", "Abrir la película de hoy");
+    el.querySelector("button").onclick = () => openNight(c, n);
+  } else if(c){
+    el.innerHTML = `<div><b data-raw></b><span data-raw></span></div><button class="bbtn" data-raw></button>`;
+    el.querySelector("b").textContent = `${c.em} ${L(c.name, c.nameEs)}`;
+    el.querySelector("span").textContent = L(`A movie for every night of ${c.mon}.`, `Una película para cada noche de ${c.monEs}.`);
+    el.querySelector("button").textContent = L("See Pro", "Ver Pro");
+    el.querySelector("button").onclick = () => goPro();
+  } else if(reviewOpen() && today().getMonth()!==11){
+    el.innerHTML = `<div><b data-raw></b><span data-raw></span></div><button class="bbtn" data-raw></button>`;
+    el.querySelector("b").textContent = L(`📊 Your ${Y} Year in Review is ready`, `📊 Tu resumen de ${Y} está listo`);
+    el.querySelector("span").textContent = L("See how many movies you watched this year.", "Mira cuántas películas vieron este año.");
+    el.querySelector("button").textContent = L("See it", "Verlo");
+    el.querySelector("button").onclick = () => showView("review");
+  } else if(live.length){
+    const p = live[0], count = p.movies.length + (p.includes ? p.includes.length : 0), only = state.col === p.id;
+    el.innerHTML = `<div><b data-raw></b><span data-raw></span></div><button class="bbtn" data-raw></button>`;
+    el.querySelector("b").textContent = L(`${p.em} ${p.name} season`, `${p.em} Temporada: ${PACK_ES[p.id]}`);
+    el.querySelector("span").textContent = L(`${count} holiday movies are in the roulette until ${MONTHS[p.season.to[0]-1]} ${p.season.to[1]}.`,
+      `${count} películas de temporada están en la ruleta hasta el ${p.season.to[1]} de ${MONTHS_ES[p.season.to[0]-1]}.`);
+    el.querySelector("button").textContent = only ? L("Show all movies","Mostrar todas") : L("Spin only these","Girar solo estas");
+    el.querySelector("button").onclick = () => { $("fCol").value = only ? "" : p.id; onFilter(); };
+  } else el.hidden = true;
+}
+
+// ===== Year in Review =====
+const reviewYear = () => { const d = today(); return d.getMonth()===0 ? d.getFullYear()-1 : d.getFullYear(); };
+const reviewOpen = () => { const d = today(); return d.getMonth()===11 || (d.getMonth()===0 && d.getDate()<=15); };
+function yearStats(Y){
+  const Ls = list(), seen = [];
+  for(const id in Ls.marks){
+    const k = Ls.marks[id];
+    if(k.seen && k.seenAt && new Date(k.seenAt).getFullYear()===Y){ const m = findMovie(id) || Ls.custom.find(c => c.id===id); if(m) seen.push({ m, at:k.seenAt }); }
+  }
+  seen.sort((a,b) => a.at-b.at);
+  const mode = arr => { const c = {}; arr.forEach(x => c[x] = (c[x]||0)+1); let best = null; for(const k in c) if(best===null || c[k]>c[best]) best = k; return best ? { k:best, n:c[best] } : null; };
+  const votes = (Ls.votes||{})[Y] || {};
+  let top = null; for(const id in votes) if(!top || votes[id]>votes[top]) top = id;
+  return {
+    Y, seen,
+    dec: mode(seen.map(x => decadeOf(x.m.y))),
+    gen: mode(seen.flatMap(x => x.m.g)),
+    top: top ? { m: findMovie(top) || Ls.custom.find(c => c.id===top), n: votes[top] } : null,
+    oldest: seen.slice().sort((a,b) => a.m.y-b.m.y)[0] || null,
+    cds: Object.values(CD).map(c => ({ c, n: c.ids.filter(id => seen.some(x => x.m.id===id && new Date(x.at).getMonth()===c.month)).length })),
+  };
+}
+const decName = d => d==="other" ? L("Older classics","Clásicos de antes") : (DEC_LABEL[d] || d);
+const genName = g => state.lang==="es" ? (ES[g]||g) : g;
+function renderReview(){
+  const S = yearStats(reviewYear()), box = $("reviewCard");
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+  const preview = !reviewOpen() ? `<p class="rv-note">${L(`Preview: the full review unlocks December 1. Here's ${S.Y} so far.`, `Vista previa: el resumen completo se abre el 1 de diciembre. Así va ${S.Y} hasta ahora.`)}</p>` : "";
+  if(!S.seen.length){
+    box.innerHTML = `<div class="rv" data-raw><div class="rv-eye">MOVIE NIGHT ROULETTE</div><h2>${L(`Our ${S.Y} in movies`, `Nuestro ${S.Y} en películas`)}</h2>
+      <p>${L("No movies marked as watched this year yet. Tap ✓ after movie night and they'll show up here.", "Todavía no hay películas marcadas como vistas este año. Toca ✓ después de cada noche de película y aparecerán aquí.")}</p></div>${preview}`;
+    $("rvCopy").hidden = true; return;
+  }
+  $("rvCopy").hidden = false;
+  const cell = (label, value, extra="", wide=false) => `<div class="rv-cell${wide?" wide":""}"><small>${label}</small><b>${esc(value)}</b>${extra?`<em>${esc(extra)}</em>`:""}</div>`;
+  const first = S.seen[0].m, last = S.seen[S.seen.length-1].m;
+  const cdLine = S.cds.filter(x => x.n).map(x => `${x.c.em} ${x.n} ${L("of","de")} ${x.c.days} ${L("countdown nights","noches de la cuenta regresiva")}`).join(" · ");
+  box.innerHTML = `<div class="rv" data-raw>
+    <div class="rv-eye">MOVIE NIGHT ROULETTE</div>
+    <h2>${L(`Our ${S.Y} in movies`, `Nuestro ${S.Y} en películas`)}</h2>
+    <div class="rv-big"><span class="num">${S.seen.length}</span><span>${L(S.seen.length===1 ? "movie watched together" : "movies watched together", S.seen.length===1 ? "película vista en familia" : "películas vistas en familia")}</span></div>
+    <div class="rv-grid">
+      ${cell(L("Favorite decade","Década favorita"), decName(S.dec.k), L(`${S.dec.n} movies`, `${S.dec.n} películas`))}
+      ${cell(L("Favorite genre","Género favorito"), genName(S.gen.k), L(`${S.gen.n} movies`, `${S.gen.n} películas`))}
+      ${S.top ? cell(L("Most voted movie","Película más votada"), S.top.m ? S.top.m.t : "", L(`${S.top.n} votes`, `${S.top.n} votos`), true)
+              : cell(L("Most voted movie","Película más votada"), L("Not crowned yet","Todavía no hay ganadora"), L("Use Vote mode to pick a favorite","Usa el modo votación para escoger una favorita"), true)}
+      ${cell(L("First of the year","La primera del año"), first.t, String(first.y))}
+      ${cell(L("Most recent","La más reciente"), last.t, String(last.y))}
+      ${S.oldest ? cell(L("Oldest movie","La más antigua"), S.oldest.m.t, String(S.oldest.m.y), true) : ""}
+    </div>
+    ${cdLine ? `<p class="rv-cd">${cdLine}</p>` : ""}
+  </div>${preview}`;
+}
+function reviewText(){
+  const S = yearStats(reviewYear());
+  if(!S.seen.length) return "";
+  const lines = [
+    L(`🎬 Our ${S.Y} Movie Night`, `🎬 Nuestro ${S.Y} de noches de película`),
+    L(`${S.seen.length} movies watched together`, `${S.seen.length} películas vistas en familia`),
+    L(`Favorite decade: ${decName(S.dec.k)}`, `Década favorita: ${decName(S.dec.k)}`),
+    L(`Favorite genre: ${genName(S.gen.k)}`, `Género favorito: ${genName(S.gen.k)}`),
+  ];
+  if(S.top && S.top.m) lines.push(L(`Most voted: ${S.top.m.t}`, `La más votada: ${S.top.m.t}`));
+  lines.push(L("Made with Movie Night Roulette 📼", "Hecho con Movie Night Roulette 📼"));
+  return lines.join("\n");
+}
+
+// ===== Spanish =====
+const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const PACK_ES = { valentines:"San Valentín en familia", easter:"Pascua y primavera", july4:"4 de julio", halloween:"Halloween en familia",
+  thanksgiving:"Acción de Gracias", christmas:"Navidad", sports:"Noche deportiva", animated:"Clásicos animados", "2010s":"Éxitos de los 2010s" };
+const ES = {
+  "Not synced":"Sin sincronizar","Your lists are saved on this phone only. Open the app signed in to Claude to keep them on every device.":"Tus listas se guardan solo en este teléfono. Abre la app con tu cuenta de Claude para tenerlas en todos tus dispositivos.","Dismiss":"Cerrar","On this device":"En este teléfono","Saved to account":"Guardado en tu cuenta","Family list":"Lista familiar",
+  "Where your lists are saved":"Dónde se guardan tus listas","Filters":"Filtros","Sections":"Secciones",
+  "Collection":"Colección","Decade":"Década","Genre":"Género","Family":"Familia",
+  "All movies":"Todas las películas","The classics":"Los clásicos","➕ Added by you":"➕ Agregadas por ti","All":"Todas","Other years":"Otros años",
+  "All ratings":"Todas las clasificaciones","🍿 No R":"🍿 Sin R","Kids (G/PG)":"Niños (G/PG)","Clear filters":"Quitar filtros",
+  "Action":"Acción","Adventure":"Aventura","Comedy":"Comedia","Sci-Fi":"Ciencia ficción","Animation":"Animación","Fantasy":"Fantasía","Drama":"Drama","Thriller":"Suspenso",
+  "Pick your filters and hit":"Elige tus filtros y dale a","SURPRISE ME!":"¡SORPRÉNDEME!","🎲 Surprise Me!":"🎲 ¡Sorpréndeme!",
+  "✕ Veto mode":"✕ Modo veto","🗳️ Vote mode":"🗳️ Modo votación","🍿 Suggest a snack":"🍿 Sugerir botana","Include movies we've seen":"Incluir las que ya vimos",
+  "No movies match these filters":"No hay películas con estos filtros",
+  "Catalog":"Catálogo","＋ Add a movie":"＋ Agregar película","Title":"Título","Year":"Año","Rating":"Clasificación","2nd genre":"2º género",
+  "Why watch it? (optional)":"¿Por qué verla? (opcional)","e.g. The Sandlot 2":"ej. The Sandlot 2","One line for the reveal card":"Una frase para la tarjeta",
+  "Search movies…":"Buscar películas…","Not rated":"Sin clasificar","None":"Ninguno","Add to catalog":"Agregar al catálogo","Cancel":"Cancelar",
+  "Add a title.":"Escribe un título.","Add the year it came out, like 1994.":"Escribe el año en que salió, por ejemplo 1994.",
+  "That movie is already in the catalog.":"Esa película ya está en el catálogo.",
+  "Nothing matches":"No hay resultados","Try a different decade or genre.":"Prueba con otra década o género.",
+  "No favorites yet":"Todavía no hay favoritas","Tap ♥ in the catalog or on a roulette pick to save a movie.":"Toca ♥ en el catálogo o en una película de la ruleta para guardarla.",
+  "Nothing watched yet":"Todavía no han visto ninguna","Tap ✓ when you finish a movie and it won't come up in the roulette again.":"Toca ✓ cuando terminen una película y ya no saldrá en la ruleta.",
+  "Yours":"Tuya","Delete?":"¿Borrar?","Remove movie":"Borrar película","Favorite":"Favorita","Favorites":"Favoritas","Veto":"Veto","Snack":"Botana","Include seen":"Incluir vistas","Veto mode":"Modo veto","Vote mode":"Modo votación","Suggest a snack":"Sugerir botana","Watched":"Vistas","Fewer people":"Menos personas","More people":"Más personas",
+  "Already Watched":"Ya las vimos","Clear all watched":"Borrar todas las vistas","Yes, clear":"Sí, borrar",
+  "Roulette":"Ruleta","Pro":"Pro",
+  "Added to favorites":"Agregada a favoritas","Removed from favorites":"Quitada de favoritas","Marked as watched":"Marcada como vista","Removed from watched":"Quitada de vistas",
+  "Movie removed":"Película borrada","Watched list cleared":"Vistas borradas","Couldn't save. Check your connection.":"No se pudo guardar. Revisa tu conexión.",
+  "Pro unlocked":"Pro desbloqueado","Pro preview off":"Vista previa de Pro apagada",
+  "Each pick now comes with a snack idea":"Cada película trae una idea de botana","Snack suggestions off":"Sugerencias de botana apagadas",
+  "Snack suggestions are part of Pro":"Las sugerencias de botana son parte de Pro","Veto mode is part of Pro":"El modo veto es parte de Pro","Vote mode is part of Pro":"El modo votación es parte de Pro",
+  "Need at least 2 movies for veto mode":"Se necesitan al menos 2 películas para el modo veto","Need at least 2 movies for vote mode":"Se necesitan al menos 2 películas para el modo votación",
+  "Unlock Pro to add this pack":"Desbloquea Pro para agregar este paquete","Color themes are part of Pro":"Los temas de color son parte de Pro",
+  "Starting a family list is part of Pro":"Crear una lista familiar es parte de Pro","Code copied":"Código copiado","Code selected, copy it":"Código seleccionado, cópialo",
+  "Back to your own list":"De vuelta a tu propia lista","Joined the family list":"Te uniste a la lista familiar","Family list started":"Lista familiar creada",
+  "🍿 Snack suggestion:":"🍿 Sugerencia de botana:",
+  "✓ Watched":"✓ Vista","✓ We watched it":"✓ Ya la vimos","♥ Favorite":"♥ Favorita","♥ Add to favorites":"♥ Agregar a favoritas","🎲 Spin again":"🎲 Girar otra vez",
+  "WHERE TO WATCH":"DÓNDE VERLA","Rent on Prime Video":"Rentar en Prime Video","Streaming guide":"Guía de streaming",
+  "As an Amazon Associate, Movie Night Roulette earns from qualifying purchases.":"Como afiliado de Amazon, Movie Night Roulette gana comisiones por compras que califican.",
+  "Pass the phone. Each person knocks out one movie until one is left.":"Pásense el teléfono. Cada quien elimina una película hasta que quede una.",
+  "✕ Veto":"✕ Vetar","How many people are voting tonight?":"¿Cuántas personas votan esta noche?","Deal the movies":"Repartir películas",
+  "Tap your favorite. Nobody else should peek.":"Toca tu favorita. Que nadie más vea.","Vote":"Votar","🗳️ Vote saved":"🗳️ Voto guardado",
+  "🗳️ The votes are in":"🗳️ Resultados","See tonight's pick":"Ver la película de esta noche",
+  "You have Pro":"Tienes Pro",
+  "Every pack, holiday packs, the family list, veto and vote modes, snack suggestions and themes are unlocked. Thanks for supporting movie night.":"Todos los paquetes, los días festivos, la lista familiar, los modos veto y votación, las botanas y los temas están desbloqueados. Gracias por apoyar la noche de película.",
+  "Holiday and theme packs, a Christmas Countdown, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.":"Paquetes temáticos y de días festivos, cuentas regresivas de Halloween y Navidad, lista familiar compartida, modos veto y votación, sugerencias de botana, temas de color y películas propias ilimitadas.",
+  "Holiday and theme packs, Halloween and Christmas countdowns, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.":"Paquetes temáticos y de días festivos, cuentas regresivas de Halloween y Navidad, lista familiar compartida, modos veto y votación, sugerencias de botana, temas de color y películas propias ilimitadas.",
+  "Unlock Pro":"Desbloquear Pro","Preview: payments arrive with the App Store version. Unlocking here is free so you can try everything.":"Vista previa: los pagos llegan con la versión de App Store. Aquí desbloquearlo es gratis para que pruebes todo.",
+  "Turn off Pro preview":"Apagar vista previa de Pro",
+  "🎉 Holiday packs":"🎉 Paquetes de días festivos",
+  "Holiday movies only play in their season, so they stay special. The rest of the year they stay out of the roulette. Halloween is free.":"Las películas de días festivos solo salen en su temporada, para que sigan siendo especiales. El resto del año no aparecen en la ruleta. Halloween es gratis.",
+  "🎃 Halloween Countdown":"🎃 Cuenta regresiva de Halloween","🎄 Christmas Countdown":"🎄 Cuenta regresiva de Navidad",
+  "📼 Theme packs":"📼 Paquetes temáticos","Turn a pack on and its movies join your catalog and the roulette all year.":"Activa un paquete y sus películas entran a tu catálogo y a la ruleta todo el año.",
+  "👨‍👩‍👧 Family list":"👨‍👩‍👧 Lista familiar",
+  "Everyone at home shares one favorites list, one watched list and the movies you add. One Pro purchase covers the family: whoever has the code can join.":"Toda la casa comparte una sola lista, las vistas y las películas que agreguen. Una compra de Pro cubre a la familia: quien tenga el código se puede unir.",
+  "Family lists are coming soon with accounts. For now, your lists are saved on this phone.":"Las listas familiares llegan pronto con cuentas. Por ahora tus listas se guardan en este teléfono.",
+  "You're on a family list. Share this code so others can join:":"Estás en una lista familiar. Comparte este código para que otros se unan:",
+  "Connecting to your family list…":"Conectando con tu lista familiar…","Copy code":"Copiar código","Leave family list":"Salir de la lista familiar",
+  "Have a code? Enter it":"¿Tienes un código? Escríbelo","Join":"Unirme","Start a family list":"Crear lista familiar",
+  "Starting one copies your current favorites, watched list and added movies into it.":"Al crearla se copian tu lista, tus vistas y las películas que agregaste.",
+  "Codes have 6 letters and numbers.":"Los códigos tienen 6 letras y números.","No family list uses that code. Check it with whoever shared it.":"Ninguna lista familiar usa ese código. Revísalo con quien te lo pasó.",
+  "Couldn't reach the family list. Try again.":"No se pudo conectar con la lista familiar. Intenta otra vez.","Couldn't start a family list. Try again.":"No se pudo crear la lista familiar. Intenta otra vez.",
+  "🎨 Color themes":"🎨 Temas de color","⭐ Also in Pro":"⭐ También en Pro",
+  "Veto mode: the roulette deals 5 movies and each person knocks one out.":"Modo veto: la ruleta reparte 5 películas y cada quien elimina una.",
+  "Vote mode: everyone secretly votes for a favorite and the most votes wins.":"Modo votación: cada quien vota en secreto por su favorita y gana la más votada.",
+  "Snack suggestion: every pick comes with an idea for tonight's snack.":"Sugerencia de botana: cada película trae una idea para la botana.",
+  "Holiday packs, including a Christmas Countdown with a movie for every night from December 1 to 25.":"Paquetes de días festivos, con cuentas regresivas: una película para cada noche de octubre y del 1 al 25 de diciembre.",
+  "Holiday packs and countdowns: a movie for every night of October and from December 1 to 25.":"Paquetes de días festivos y cuentas regresivas: una película para cada noche de octubre y del 1 al 25 de diciembre.",
+  "Unlimited movies of your own (the free version holds 5).":"Películas propias ilimitadas (la versión gratis permite 5).","Extra home screen icons.":"Íconos extra para la pantalla de inicio.",
+  "In season now":"En temporada","Free":"Gratis","Spin only these":"Girar solo estas","Show all movies":"Mostrar todas",
+  "📊 Year in Review":"📊 Resumen del año","📊 Year in Review (preview)":"📊 Resumen del año (vista previa)","Copy summary":"Copiar resumen","← Back":"← Volver",
+  "Summary copied":"Resumen copiado","Summary selected, copy it":"Resumen seleccionado, cópialo",
+  "Added by you for movie night.":"Agregada por ti para la noche de película.",
+  "Buttery popcorn":"Palomitas con mantequilla","Nachos with cheese":"Nachos con queso","Homemade pizza":"Pizza casera","Root beer floats":"Root beer con helado",
+  "Movie candy mix":"Mezcla de dulces de cine","Indoor s'mores":"S'mores en casa","Soft pretzels":"Pretzels suaves","Ice cream sundaes":"Copas de helado",
+  "Kettle corn":"Palomitas dulces","Chocolate-dipped strawberries":"Fresas con chocolate","Pigs in a blanket":"Salchichitas envueltas","Popcorn bar with toppings":"Barra de palomitas con toppings",
+};
+PACKS.forEach(p => { ES[p.name] = PACK_ES[p.id]; ES[p.em+" "+p.name] = p.em+" "+PACK_ES[p.id]; ES[(p.em+" "+p.name).toUpperCase()] = (p.em+" "+PACK_ES[p.id]).toUpperCase(); });
+const monEs = m => MONTHS_ES[MONTHS.indexOf(m)] || m;
+const packEs = name => { const p = PACKS.find(x => x.name===name); return p ? PACK_ES[p.id] : name; };
+const ES_RX = [
+  [/^(\d+) of (\d+)$/, (_,a,b) => `${a} de ${b}`],
+  [/^(\d+) movies?( ·)?$/, (_,n,dot) => `${n} película${n==="1"?"":"s"}${dot||""}`],
+  [/^(\d+) tapes$/, (_,n) => `${n} cintas`],
+  [/^TONIGHT'S PICK · (.+)$/, (_,r) => "ESTA NOCHE TOCA · " + r.split(" · ").map(x => ES[x]||x).join(" · ")],
+  [/^Added (.+)$/, (_,t) => `Agregaste ${t}`],
+  [/^(.+) turned off$/, (_,n) => `${packEs(n)} apagado`],
+  [/^(.+) added to the roulette$/, (_,n) => `${packEs(n)} agregado a la ruleta`],
+  [/^(.+) will play (\w+) (\d+) – (\w+) (\d+)$/, (_,n,m1,d1,m2,d2) => `${packEs(n)} saldrá del ${d1} de ${monEs(m1)} al ${d2} de ${monEs(m2)}`],
+  [/^Plays (\w+) (\d+) – (\w+) (\d+)$/, (_,m1,d1,m2,d2) => `Sale del ${d1} de ${monEs(m1)} al ${d2} de ${monEs(m2)}`],
+  [/^\$([\d.]+) once · no subscription$/, (_,p) => `$${p} una sola vez · sin suscripción`],
+  [/^(Movies you add are only in your catalog\.|Movies you add go to your family list\.) (?:(Pro: unlimited\.)|Free version: (\d+) of (\d+) used\.)$/,
+    (_,a,pro,n,max) => (a.includes("family") ? "Las películas que agregues van a tu lista familiar." : "Las películas que agregues solo están en tu catálogo.") + (pro ? " Pro: ilimitadas." : ` Versión gratis: ${n} de ${max} usadas.`)],
+  [/^The free version holds (\d+) movies of your own\. Pro makes it unlimited\.$/, (_,n) => `La versión gratis permite ${n} películas propias. Con Pro son ilimitadas.`],
+  [/^VOTER (\d+) OF (\d+)$/, (_,a,b) => `VOTANTE ${a} DE ${b}`],
+  [/^Pass the phone to voter (\d+)\.$/, (_,n) => `Pásale el teléfono al votante ${n}.`],
+  [/^I'm voter (\d+), show the movies$/, (_,n) => `Soy el votante ${n}, muéstrame las películas`],
+  [/^It's a tie between (\d+) movies\. The roulette broke it\.$/, (_,n) => `Empate entre ${n} películas. La ruleta decidió.`],
+  [/^(\d+) votes?$/, (_,n) => `${n} voto${n==="1"?"":"s"}`],
+];
+function tr(s){
+  const k = s.trim(); if(!k) return s;
+  if(ES[k]) return s.replace(k, ES[k]);
+  for(const [rx, f] of ES_RX){ const m = k.match(rx); if(m) return s.replace(k, f(...m)); }
+  if(k.includes(" · ")) return s.replace(k, k.split(" · ").map(x => tr(x)).join(" · "));
+  return s;
+}
+const TXT = new WeakMap(), ATTR = new WeakMap();
+function trNode(n){
+  if(n.nodeType === 3){
+    const p = n.parentElement; if(!p || p.closest("[data-raw],script,style")) return;
+    let o = TXT.get(n); if(!o || n.nodeValue !== o.out) o = { src: n.nodeValue };
+    o.out = state.lang === "es" ? tr(o.src) : o.src; TXT.set(n, o);
+    if(n.nodeValue !== o.out) n.nodeValue = o.out;
+  } else if(n.nodeType === 1){
+    if(n.matches("[data-raw],script,style")) return;
+    let a = ATTR.get(n) || {};
+    ["placeholder","aria-label","title"].forEach(at => {
+      if(!n.hasAttribute(at)) return;
+      const cur = n.getAttribute(at); let o = a[at]; if(!o || cur !== o.out) o = { src: cur };
+      o.out = state.lang === "es" ? tr(o.src) : o.src; a[at] = o;
+      if(cur !== o.out) n.setAttribute(at, o.out);
+    });
+    ATTR.set(n, a);
+    n.childNodes.forEach(trNode);
+  }
+}
+new MutationObserver(ms => ms.forEach(m => {
+  if(m.type === "childList") m.addedNodes.forEach(trNode); else if(m.type === "characterData") trNode(m.target);
+})).observe(document.body, { childList:true, subtree:true, characterData:true });
+function applyLang(){
+  document.documentElement.lang = state.lang;
+  $("langBtn").textContent = state.lang === "es" ? "EN" : "ES";
+  $("langBtn").setAttribute("aria-label", state.lang === "es" ? "Switch to English" : "Cambiar a español");
+  trNode(document.body);
+}
+
+const ES_B = {
+"E.T. the Extra-Terrestrial":"Un niño esconde a un extraterrestre perdido y lo ayuda a volver a casa.",
+"Back to the Future":"Marty viaja a 1955 en un DeLorean y casi borra su propia existencia.",
+"Back to the Future Part II":"Marty y Doc saltan al futuro de 2015 y todo se complica.",
+"Raiders of the Lost Ark":"Indiana Jones compite con los nazis por el Arca de la Alianza.",
+"Indiana Jones and the Last Crusade":"Indy y su papá buscan el Santo Grial.",
+"The Goonies":"Unos amigos siguen un mapa pirata para salvar su barrio.",
+"Ghostbusters":"Tres científicos abren un negocio para cazar fantasmas en Nueva York.",
+"Honey, I Shrunk the Kids":"Un inventor encoge a los niños y el jardín se vuelve una selva.",
+"The Empire Strikes Back":"Luke entrena con Yoda mientras el Imperio contraataca.",
+"Return of the Jedi":"La batalla final contra el Emperador, con ewoks incluidos.",
+"The Princess Bride":"Un abuelo le lee a su nieto un cuento de piratas, gigantes y amor verdadero.",
+"Who Framed Roger Rabbit":"Un detective ayuda a un conejo animado acusado de un crimen.",
+"The Little Mermaid":"Ariel cambia su voz por piernas para conocer el mundo humano.",
+"Big":"Un niño de 12 años despierta en el cuerpo de un adulto.",
+"Beetlejuice":"Dos fantasmas contratan a un bioexorcista bastante caótico.",
+"Gremlins":"Tres reglas para cuidar a Gizmo. Nadie las cumple.",
+"The Karate Kid":"Daniel aprende karate con el señor Miyagi. Dar cera, pulir cera.",
+"Ferris Bueller's Day Off":"Ferris se escapa de clases para tener el mejor día en Chicago.",
+"Willow":"Un granjero debe proteger a una bebé de una reina malvada.",
+"The NeverEnding Story":"Un niño lee un libro y entra al reino de Fantasía.",
+"Labyrinth":"Sarah tiene 13 horas para rescatar a su hermano del Rey Goblin.",
+"Batman":"Batman se enfrenta al Joker en una Gotham oscura.",
+"Top Gun":"Maverick compite por ser el mejor piloto de la escuela naval.",
+"Die Hard":"John McClane contra terroristas en un rascacielos en Navidad.",
+"The Terminator":"Un cyborg del futuro persigue a Sarah Connor.",
+"Aliens":"Ripley regresa al planeta de los xenomorfos con marines coloniales.",
+"Short Circuit":"Un robot militar cobra vida tras un rayo y quiere ser libre.",
+"Superman II":"Superman enfrenta a tres villanos kryptonianos.",
+"Star Trek IV: The Voyage Home":"La tripulación viaja a 1986 para salvar a las ballenas.",
+"The Land Before Time":"Piecito y sus amigos dinosaurios buscan el Gran Valle.",
+"Flight of the Navigator":"Un niño desaparece y regresa ocho años después en una nave.",
+"Romancing the Stone":"Una escritora termina en una aventura real en la selva.",
+"Home Alone":"Kevin se queda solo en Navidad y defiende la casa de dos ladrones.",
+"Terminator 2: Judgment Day":"El T-800 ahora protege a John Connor del T-1000.",
+"Jurassic Park":"Un parque con dinosaurios clonados. ¿Qué podría salir mal?",
+"Speed":"Un autobús con una bomba que explota si baja de 50 millas por hora.",
+"The Matrix":"Neo descubre que el mundo es una simulación.",
+"The Lion King":"Simba debe aceptar su lugar en el ciclo de la vida.",
+"Toy Story":"Woody y Buzz pasan de rivales a mejores amigos.",
+"Toy Story 2":"Los juguetes rescatan a Woody de un coleccionista.",
+"Aladdin":"Un joven, una lámpara mágica y un genio muy hablador.",
+"Beauty and the Beast":"Bella descubre al príncipe detrás de la Bestia.",
+"Jumanji":"Un juego de mesa que hace realidad cada jugada.",
+"Hook":"Un Peter Pan adulto vuelve a Nunca Jamás para rescatar a sus hijos.",
+"Independence Day":"La humanidad contraataca una invasión alienígena el 4 de julio.",
+"Men in Black":"Agentes secretos vigilan a los extraterrestres que viven en la Tierra.",
+"Mrs. Doubtfire":"Un papá se disfraza de niñera para estar cerca de sus hijos.",
+"The Mask":"Una máscara antigua convierte a un empleado tímido en un torbellino.",
+"Twister":"Cazadores de tormentas persiguen tornados en Oklahoma.",
+"Apollo 13":"Houston, tenemos un problema: la misión que tuvo que volver a casa.",
+"Titanic":"Una historia de amor a bordo del barco que no podía hundirse.",
+"The Sandlot":"Un verano de béisbol, amigos y una pelota firmada en peligro.",
+"Hocus Pocus":"Tres brujas regresan a Salem en Halloween.",
+"Mulan":"Mulan se disfraza de soldado para salvar a su padre.",
+"A Bug's Life":"Una hormiga contrata a unos guerreros que resultan ser de circo.",
+"Babe":"Un cerdito que quiere ser perro pastor.",
+"Free Willy":"Un niño se hace amigo de una orca y planea liberarla.",
+"Space Jam":"Michael Jordan juega básquet con los Looney Tunes contra alienígenas.",
+"The Mummy":"Una momia despierta en Egipto y hay que detenerla.",
+"Star Wars: Episode I – The Phantom Menace":"Conocemos al pequeño Anakin y la carrera de vainas.",
+"The Iron Giant":"Un niño se hace amigo de un robot gigante caído del cielo.",
+"Air Force One":"El presidente pelea contra secuestradores en su propio avión.",
+"Liar Liar":"Un abogado no puede decir mentiras durante 24 horas.",
+"Mission: Impossible":"Ethan Hunt debe limpiar su nombre con un golpe imposible.",
+"GoldenEye":"James Bond detiene un satélite armado.",
+"Hercules":"Hércules pasa de cero a héroe para volver al Olimpo.",
+"Shrek":"Un ogro y un burro rescatan a una princesa con un secreto.",
+"Shrek 2":"Shrek conoce a los suegros en el reino de Muy Muy Lejano.",
+"Finding Nemo":"Marlin cruza el océano para encontrar a su hijo.",
+"The Incredibles":"Una familia de superhéroes vuelve a la acción.",
+"Monsters, Inc.":"Sulley y Mike descubren que los niños no son peligrosos.",
+"Harry Potter and the Sorcerer's Stone":"Harry descubre que es mago y llega a Hogwarts.",
+"Harry Potter and the Prisoner of Azkaban":"Un prisionero escapa de Azkaban y parece que viene por Harry.",
+"The Lord of the Rings: The Fellowship of the Ring":"Frodo y la comunidad salen a destruir el Anillo Único.",
+"Pirates of the Caribbean: The Curse of the Black Pearl":"Jack Sparrow y una tripulación pirata maldita.",
+"Spider-Man":"Peter Parker aprende que un gran poder trae una gran responsabilidad.",
+"Spider-Man 2":"Peter intenta equilibrar su vida mientras aparece el Doctor Octopus.",
+"Iron Man":"Tony Stark construye una armadura y se vuelve héroe.",
+"The Dark Knight":"Batman enfrenta al Joker en su prueba más dura.",
+"Night at the Museum":"Un guardia descubre que el museo cobra vida de noche.",
+"Ice Age":"Un mamut, un perezoso y un tigre devuelven a un bebé a su tribu.",
+"Cars":"Rayo McQueen queda varado en un pueblito de la Ruta 66.",
+"Ratatouille":"Una rata que sueña con ser chef en París.",
+"WALL·E":"Un robot limpiador solitario se enamora y salva al planeta.",
+"Up":"Un viudo ata globos a su casa y vuela a Sudamérica.",
+"Spy Kids":"Dos hermanos descubren que sus papás son espías.",
+"National Treasure":"Un mapa escondido detrás de la Declaración de Independencia.",
+"Elf":"Buddy, criado por duendes, busca a su papá en Nueva York.",
+"School of Rock":"Un roquero se hace pasar por maestro y forma una banda.",
+"The Chronicles of Narnia: The Lion, the Witch and the Wardrobe":"Cuatro hermanos cruzan un ropero hacia Narnia.",
+"Transformers":"Autobots y Decepticons llevan su guerra a la Tierra.",
+"Kung Fu Panda":"Po, un panda torpe, es elegido Guerrero Dragón.",
+"Madagascar":"Animales del zoológico de Nueva York terminan en la selva.",
+"Avatar":"Un marine explora Pandora a través de un cuerpo Na'vi.",
+"Star Trek":"Kirk y Spock se conocen en el reinicio de la saga.",
+"Gladiator":"Un general romano traicionado busca venganza en la arena.",
+"Sleepless in Seattle":"Un niño llama a la radio para buscarle una nueva pareja a su papá viudo.",
+"The Parent Trap":"Gemelas separadas al nacer cambian de lugar para reunir a sus papás.",
+"13 Going on 30":"Una niña pide un deseo de cumpleaños y despierta con 30 años.",
+"Ella Enchanted":"Una joven hechizada para obedecer siempre sale a romper el encanto.",
+"Enchanted":"Una princesa de caricatura aparece en el Nueva York real.",
+"The Princess and the Frog":"Tiana besa a un príncipe sapo en Nueva Orleans y también se vuelve sapo.",
+"Tangled":"Rapunzel sale de su torre por primera vez con un ladrón encantador.",
+"Gnomeo & Juliet":"Gnomos de jardines rivales se enamoran.",
+"Cinderella|2015":"La versión con actores del cuento de la zapatilla de cristal.",
+"The Prince of Egypt":"La historia de Moisés, de príncipe a guía de su pueblo.",
+"Miss Potter":"La historia real de Beatrix Potter, creadora de Peter Rabbit.",
+"Hop":"El hijo del Conejo de Pascua prefiere ser baterista de rock.",
+"Rise of the Guardians":"Jack Frost se une al Conejo de Pascua, Santa y el Hada de los Dientes.",
+"Peter Rabbit":"Peter y su familia le declaran la guerra al nuevo dueño del jardín.",
+"Peter Rabbit 2: The Runaway":"Peter se escapa a la gran ciudad y se mete en problemas.",
+"1776":"Los padres fundadores discuten, cantan y firman la Declaración.",
+"Jaws":"Un tiburón blanco amenaza el 4 de julio de un pueblo de playa.",
+"An American Tail":"Un ratoncito emigra a Estados Unidos y se pierde en Nueva York.",
+"The Rocketeer":"Un piloto encuentra una mochila cohete y se vuelve héroe en los años 30.",
+"Forrest Gump":"El viaje de un hombre por décadas de historia de Estados Unidos.",
+"Night at the Museum: Battle of the Smithsonian":"Larry va a Washington cuando el Smithsonian cobra vida.",
+"Captain America: The First Avenger":"Un voluntario flacucho se convierte en el primer supersoldado.",
+"Hidden Figures":"Tres mujeres afroamericanas de la NASA ayudan a ganar la carrera espacial.",
+"Hamilton":"El exitoso musical sobre el padre fundador Alexander Hamilton.",
+"Top Gun: Maverick":"Maverick entrena a una nueva generación de pilotos para una misión imposible.",
+"The Nightmare Before Christmas":"Jack Skellington descubre el pueblo de la Navidad y lo quiere para él.",
+"Casper":"Un fantasma amigable se hace amigo de la niña que llega a su mansión.",
+"Monster House":"Tres niños descubren que la casa tenebrosa de enfrente está viva.",
+"Coraline":"Coraline encuentra una puerta secreta a un mundo demasiado perfecto.",
+"Corpse Bride":"Un novio nervioso se casa por accidente con una novia del más allá.",
+"The Addams Family":"La familia más tenebrosa del barrio enfrenta a un falso tío perdido.",
+"Ghostbusters II":"El equipo regresa para enfrentar un río de baba bajo Nueva York.",
+"The Monster Squad":"Un club de niños se enfrenta a Drácula, el Hombre Lobo y compañía.",
+"The Witches":"Un niño y su abuela se topan con una convención de brujas de verdad.",
+"The Haunted Mansion":"Un agente inmobiliario y su familia quedan atrapados en una casa embrujada.",
+"Hotel Transylvania":"Drácula tiene un hotel para monstruos y llega un humano.",
+"ParaNorman":"Un niño que habla con fantasmas debe salvar a su pueblo de una maldición.",
+"Frankenweenie":"Victor revive a su querido perro con un proyecto de ciencias.",
+"Goosebumps":"Los monstruos de los libros de R.L. Stine escapan a un pueblo real.",
+"It's the Great Pumpkin, Charlie Brown":"Linus espera toda la noche a la Gran Calabaza mientras Charlie Brown pide dulces.",
+"Kiki's Delivery Service":"Una brujita de 13 años abre un servicio de entregas en su escoba.",
+"The Adventures of Ichabod and Mr. Toad":"Incluye la leyenda del jinete sin cabeza de Sleepy Hollow.",
+"Scooby-Doo":"Scooby y la pandilla se reúnen para resolver un misterio en una isla de fiesta.",
+"The Little Vampire":"Un niño nuevo en Escocia se hace amigo de un pequeño vampiro.",
+"Halloweentown":"Tres hermanos descubren que su abuela es bruja y viven en un pueblo de Halloween.",
+"Wallace & Gromit: The Curse of the Were-Rabbit":"Wallace y Gromit cazan a un conejo gigante antes del concurso de verduras.",
+"Hotel Transylvania 2":"Drácula quiere saber si su nieto tiene algo de vampiro.",
+"Goosebumps 2: Haunted Halloween":"Un muñeco de ventrílocuo despierta a todos los monstruos en Halloween.",
+"The House with a Clock in Its Walls":"Un niño se va a vivir con su tío brujo a una casa llena de magia.",
+"The Book of Life":"Un joven torero viaja al mundo de los muertos en el Día de Muertos.",
+"Arachnophobia":"Una araña venenosa llega a un pueblito y se multiplica.",
+"Something Wicked This Way Comes":"Una feria misteriosa llega al pueblo y concede deseos con trampa.",
+"Edward Scissorhands":"Un joven con tijeras por manos llega a vivir a un barrio colorido.",
+"Practical Magic":"Dos hermanas brujas enfrentan una maldición familiar.",
+"Hocus Pocus 2":"Las hermanas Sanderson regresan a Salem treinta años después.",
+"Planes, Trains and Automobiles":"Dos viajeros que no se soportan intentan llegar a casa para Acción de Gracias.",
+"Dutch":"Un tipo sencillo lleva al hijo presumido de su novia a casa para el feriado.",
+"Addams Family Values":"Merlina protagoniza la obra de Acción de Gracias más memorable del campamento.",
+"Pocahontas":"Pocahontas conoce a colonos ingleses e intenta mantener la paz.",
+"Charlotte's Web":"Una araña astuta salva a su amigo, el cerdito Wilbur.",
+"The Blind Side":"Una familia acoge a un adolescente que se convierte en estrella del fútbol americano.",
+"Fantastic Mr. Fox":"Un zorro planea un último golpe contra tres granjeros malvados.",
+"Free Birds":"Dos pavos viajan en el tiempo para sacar al pavo del menú.",
+"Instant Family":"Una pareja adopta a tres hermanos y aprende lo que es ser familia.",
+"Santa Claus: The Movie":"Cómo un leñador bondadoso se convirtió en Santa Claus.",
+"Prancer":"Una niña cuida a un reno herido que cree que es de Santa.",
+"Jack Frost":"Un papá regresa como muñeco de nieve para recuperar el tiempo perdido.",
+"Christmas with the Kranks":"Una pareja quiere saltarse la Navidad. El vecindario no lo permite.",
+"Fred Claus":"El hermano mayor problemático de Santa llega a ayudar al Polo Norte.",
+"The Star":"Un burrito y sus amigos animales forman parte de la primera Navidad.",
+"Noelle":"La hija de Santa debe encontrar a su hermano antes de Nochebuena.",
+"The Santa Clause":"Un papá se convierte por accidente en el nuevo Santa.",
+"The Santa Clause 2":"Scott Calvin necesita una Mrs. Claus antes de Nochebuena.",
+"Jingle All the Way":"Dos papás compiten por toda la ciudad por el juguete del año.",
+"A Christmas Carol":"Scrooge recibe la visita de tres fantasmas en una versión animada espectacular.",
+"Scrooged":"Un jefe de televisión cínico recibe a tres fantasmas muy modernos.",
+"The Muppet Christmas Carol":"Los Muppets cuentan la historia de Dickens con Michael Caine como Scrooge.",
+"The Grinch":"El Grinch animado planea robarse la Navidad de Villa Quién.",
+"How the Grinch Stole Christmas":"El Grinch planea robarse la Navidad de Villa Quién.",
+"Miracle on 34th Street":"Un Santa de tienda dice ser el verdadero y termina en la corte.",
+"Klaus":"Un cartero flojo y un juguetero inician una tradición muy famosa.",
+"Arthur Christmas":"El hijo menor de Santa tiene una noche para entregar un regalo olvidado.",
+"A Christmas Story":"Ralphie quiere una escopeta de balines. Todos le dicen que se va a sacar un ojo.",
+"National Lampoon's Christmas Vacation":"Clark Griswold planea la Navidad familiar perfecta. Todo sale mal.",
+"It's a Wonderful Life":"Un ángel le muestra a George Bailey cómo sería su pueblo sin él.",
+"Home Alone 2: Lost in New York":"Kevin se sube al avión equivocado y tiene Nueva York para él solo.",
+"The Polar Express":"Un tren mágico lleva a un niño al Polo Norte en Nochebuena.",
+"Rocky IV":"Rocky va a Rusia a pelear contra el gigante Ivan Drago.",
+"Hoosiers":"Un equipo de básquet de un pueblito de Indiana va por el título estatal.",
+"Field of Dreams":"Un granjero de Iowa construye un campo de béisbol en su maizal.",
+"The Mighty Ducks":"Un abogado presumido tiene que entrenar a un equipo infantil de hockey sin remedio.",
+"Cool Runnings":"Jamaica manda su primer equipo de bobsled a los Juegos Olímpicos de invierno.",
+"Rookie of the Year":"Un brazo roto le da a un niño de 12 años una recta de grandes ligas.",
+"Rudy":"Un muchacho bajito y terco sueña con jugar fútbol americano en Notre Dame.",
+"Little Giants":"Un equipo de desvalidos enfrenta al equipo estrella del pueblo.",
+"Angels in the Outfield":"Un niño de un hogar temporal pide que su equipo gane, y llegan ángeles.",
+"Air Bud":"Un golden retriever que encesta se une al equipo de la escuela.",
+"Remember the Titans":"Un equipo de fútbol americano recién integrado aprende a jugar unido.",
+"Miracle":"El equipo de hockey de Estados Unidos de 1980 enfrenta a la Unión Soviética.",
+"Snow White and the Seven Dwarfs":"Blancanieves se esconde de la Reina Malvada con siete nuevos amigos.",
+"Pinocchio":"Un muñeco de madera quiere convertirse en un niño de verdad.",
+"Dumbo":"Un elefantito de orejas gigantes descubre que puede volar.",
+"Bambi":"Un cervatillo crece en el bosque con Tambor y Flor.",
+"Cinderella|1950":"Un hada madrina, una carroza de calabaza y una zapatilla de cristal perdida.",
+"Alice in Wonderland":"Alicia sigue a un conejo blanco hasta un mundo muy extraño.",
+"Peter Pan":"Wendy y sus hermanos vuelan a Nunca Jamás.",
+"Lady and the Tramp":"Una perrita consentida y un perro callejero se enamoran.",
+"Sleeping Beauty":"Una princesa hechizada por Maléfica duerme hasta el beso de amor verdadero.",
+"One Hundred and One Dalmatians":"Pongo y Perdita rescatan a sus cachorros de Cruella de Vil.",
+"The Jungle Book":"Mowgli, Baloo y Bagheera, y lo más vital de la vida en la selva.",
+"The Aristocats":"Una familia de gatos parisinos vuelve a casa con ayuda de un gato callejero.",
+"Robin Hood":"Un zorro les roba a los ricos para darles a los pobres.",
+"Toy Story 3":"Andy se va a la universidad y los juguetes terminan en una guardería.",
+"How to Train Your Dragon":"Un joven vikingo se hace amigo del dragón que debía combatir.",
+"The Avengers":"Los héroes más poderosos de la Tierra se unen por primera vez.",
+"Frozen":"Anna sale a buscar a su hermana Elsa para terminar un invierno eterno.",
+"The LEGO Movie":"Una figurita común es confundida con el héroe que salvará al mundo.",
+"Big Hero 6":"Un joven genio y su robot inflable forman un equipo de superhéroes.",
+"Inside Out":"Alegría, Tristeza y sus amigos manejan la mente de una niña de 11 años.",
+"Star Wars: The Force Awakens":"Una chatarrera y un soldado desertor se unen a la lucha contra la Primera Orden.",
+"Zootopia":"Una coneja policía y un zorro estafador resuelven un caso en toda la ciudad.",
+"Moana":"Moana cruza el océano con el semidiós Maui.",
+"Coco":"Miguel entra a la Tierra de los Muertos para conocer la historia de su familia.",
+"Paddington 2":"A Paddington lo culpan de robar un libro desplegable.",
+"Jumanji: Welcome to the Jungle":"Cuatro adolescentes quedan atrapados en un videojuego como sus personajes.",
+"Spider-Man: Into the Spider-Verse":"Miles Morales conoce a Spider-Personas de otras dimensiones.",
+};
+const blurbOf = m => state.lang === "es" ? (ES_B[m.t+"|"+m.y] || ES_B[m.t] || ES[m.b] || m.b) : m.b;
+
+// ===== Render =====
+function applySkin(){
+  const s = state.pro ? state.skin : "";
+  if(s) document.documentElement.dataset.skin = s; else delete document.documentElement.dataset.skin;
+}
+let lastLang = null;
+function renderAll(){
+  rebuild(); applySkin(); syncLabel();
+  document.querySelectorAll("[data-pro]").forEach(el => el.hidden = state.pro);
+  renderFilters(); renderLists(); renderPool(); renderPro(); renderBanner();
+  $("rvOpen").textContent = reviewOpen() ? "📊 Year in Review" : "📊 Year in Review (preview)";
+  if(state.view==="review") renderReview();
+  if(lastLang !== state.lang){ lastLang = state.lang; applyLang(); }
+  if(state.last) renderReveal(state.last, false);
+}
+
+// ===== Tabs, search, misc =====
+function showView(v){
+  state.view = v;
+  document.querySelectorAll("nav.tabs button").forEach(x => x.dataset.v===v ? x.setAttribute("aria-current","page") : x.removeAttribute("aria-current"));
+  ["spin","all","want","seen","pro","review"].forEach(k => $("v-"+k).hidden = k!==v);
+  if(v==="review") renderReview();
+  document.querySelector(".filters").hidden = v==="pro" || v==="review";
+  window.scrollTo({top:0});
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => showView(b.dataset.v));
+$("q").addEventListener("input", e => { state.q = e.target.value; renderLists(); });
+$("inclSeen").addEventListener("change", e => { state.inclSeen = e.target.checked; renderPool(); });
+$("spinBtn").onclick = spin;
+$("vetoBtn").onclick = startVeto;
+$("voteBtn").onclick = startVote;
+$("snackBtn").onclick = () => { if(!state.pro) return goPro("Snack suggestions are part of Pro"); state.snack = !state.snack; renderPool(); toast(state.snack?"Each pick now comes with a snack idea":"Snack suggestions off"); };
+$("syncX").onclick = () => { syncDismissed = true; $("syncAlert").hidden = true; };
+$("langBtn").onclick = () => { state.lang = state.lang==="es" ? "en" : "es"; persist("settings"); renderAll(); };
+$("rvOpen").onclick = () => showView("review");
+$("rvBack").onclick = () => showView("seen");
+$("rvCopy").onclick = async () => {
+  const txt = reviewText();
+  try{ await navigator.clipboard.writeText(txt); toast(L("Summary copied","Resumen copiado")); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents($("reviewCard")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast(L("Summary selected, copy it","Resumen seleccionado, cópialo")); }
+};
+$("proOff").onclick = () => { state.pro = false; persist("settings"); renderAll(); toast("Pro preview off"); };
+
+function openForm(open){
+  $("addForm").hidden = !open; $("addOpen").hidden = open; $("addOpen").setAttribute("aria-expanded", open);
+  $("aErr").hidden = true;
+  if(open) $("aT").focus();
+}
+$("addOpen").onclick = () => openForm(true);
+$("addCancel").onclick = () => { $("addForm").reset(); openForm(false); };
+$("addForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const t = $("aT").value.trim(), y = parseInt($("aY").value, 10);
+  const err = msg => { $("aErr").textContent = msg; $("aErr").hidden = false; };
+  if(!t) return err("Add a title.");
+  if(!(y>=1920 && y<=2030)) return err("Add the year it came out, like 1994.");
+  if(!state.pro && list().custom.length >= FREE_CUSTOM) return err(`The free version holds ${FREE_CUSTOM} movies of your own. Pro makes it unlimited.`);
+  const id = "c-" + slug(t) + "-" + y;
+  if(MOVIES.some(m => m.id===id || (slug(m.t)===slug(t) && m.y===y))) return err("That movie is already in the catalog.");
+  const g = [$("aG").value]; if($("aG2").value && $("aG2").value!==g[0]) g.push($("aG2").value);
+  addMovie({ id, t, y, g, r: $("aR").value, b: $("aB").value.trim() || "Added by you for movie night." });
+  $("addForm").reset(); openForm(false);
+  toast(`Added ${t.length>24?t.slice(0,22)+"…":t}`);
+});
+$("resetAsk").onclick = () => { $("resetAsk").hidden=true; $("resetYes").hidden=false; $("resetNo").hidden=false; };
+$("resetNo").onclick = () => { $("resetAsk").hidden=false; $("resetYes").hidden=true; $("resetNo").hidden=true; };
+$("resetYes").onclick = () => {
+  const marks = list().marks;
+  Object.keys(marks).forEach(id => { if(marks[id].seen) marks[id].seen = false; });
+  persist("list"); $("resetNo").onclick(); renderAll(); toast("Watched list cleared");
+};
+let tt; function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.opacity=1; clearTimeout(tt); tt=setTimeout(()=>t.style.opacity=0,1800); }
+
+renderAll();
+(function seedScreen(){
+  const reel = $("reel"); const p = spinPool();
+  [p[5],p[12],p[20]].forEach(m => { const d=document.createElement("div"); d.textContent=m?m.t:""; d.style.opacity=.35; reel.append(d); });
+})();
+if(location.hash === "#pro") showView("pro");
+</script>
+
+<script>
+if("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+</script>
+</body>
+</html>
