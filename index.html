@@ -337,7 +337,7 @@ header{padding-block:14px 6px}
     <section id="v-spin">
       <div class="syncalert" id="syncAlert" role="status" hidden>
         <span class="si">⚠️</span>
-        <div><b>Not synced</b><span>Your lists are saved on this phone only. Open the app signed in to Claude to keep them on every device.</span></div>
+        <div><b>Not synced</b><span>Your lists are saved on this phone for now. They'll sync again when you're back online.</span></div>
         <button class="sx" id="syncX" aria-label="Dismiss">✕</button>
       </div>
       <div class="banner" id="banner" hidden></div>
@@ -464,6 +464,111 @@ header{padding-block:14px 6px}
 </div></nav>
 <div class="toast" id="toast" style="opacity:0" aria-live="polite"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// Supabase backend for the web version. Mimics the small part of the claude.ai storage API the app uses.
+(function(){
+  const SB_URL = "https://geqcdnbpclihubtnwgpw.supabase.co";
+  const SB_KEY = "sb_publishable_xTKCtQLg-C4l1eEeTHQkyg_sMO43rKx";
+  let sb = null, ready = null;
+  const fail = (e) => { const err = new Error((e && e.message) || "unavailable"); err.code = "unavailable"; return err; };
+  function session(){
+    if(ready) return ready;
+    ready = (async () => {
+      if(!window.supabase || !navigator.onLine) return null;
+      sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: "mnr-auth" } });
+      let { data: { session: s } } = await sb.auth.getSession();
+      if(!s){
+        const { data, error } = await sb.auth.signInAnonymously();
+        if(error) return null;
+        s = data.session;
+      }
+      return s && s.user ? s.user : null;
+    })().catch(() => null);
+    return ready;
+  }
+  const snap = (id, row) => ({ id, exists: !!row, data: () => row ? row.data : undefined, metadata: { fromCache:false, hasPendingWrites:false } });
+
+  function stateDoc(uid){
+    return {
+      id: "state",
+      async get(){
+        const { data, error } = await sb.from("user_state").select("data").eq("user_id", uid).maybeSingle();
+        if(error) throw fail(error);
+        return snap("state", data);
+      },
+      async set(body){
+        const { error } = await sb.from("user_state").upsert({ user_id: uid, data: body });
+        if(error) throw fail(error);
+      },
+      onSnapshot(next, onErr){
+        let alive = true;
+        const pull = () => this.get().then(s => { if(alive) next(s); }).catch(e => { if(alive && onErr) onErr(e); });
+        const vis = () => { if(document.visibilityState === "visible") pull(); };
+        document.addEventListener("visibilitychange", vis);
+        return () => { alive = false; document.removeEventListener("visibilitychange", vis); };
+      },
+    };
+  }
+  function familyDoc(code){
+    return {
+      id: code,
+      async get(){
+        const { data, error } = await sb.from("families").select("data").eq("code", code).maybeSingle();
+        if(error) throw fail(error);
+        return snap(code, data);
+      },
+      async join(){
+        const { data, error } = await sb.rpc("join_family", { fam: code });
+        if(error) throw fail(error);
+        return { exists: !!data };
+      },
+      async set(body){
+        const { data, error } = await sb.from("families").update({ data: body }).eq("code", code).select("code");
+        if(error) throw fail(error);
+        if(!data || !data.length){
+          const r = await sb.rpc("create_family", { fam: code, initial: body });
+          if(r.error) throw fail(r.error);
+        }
+      },
+      onSnapshot(next, onErr){
+        let alive = true;
+        const pull = () => this.get().then(s => { if(alive) next(s); }).catch(e => { if(alive && onErr) onErr(e); });
+        pull();
+        const ch = sb.channel("fam-" + code)
+          .on("postgres_changes", { event: "*", schema: "public", table: "families", filter: "code=eq." + code },
+              p => { if(alive) next(snap(code, p.new && p.new.data ? p.new : null)); })
+          .subscribe();
+        const vis = () => { if(document.visibilityState === "visible") pull(); };
+        document.addEventListener("visibilitychange", vis);
+        return () => { alive = false; sb.removeChannel(ch); document.removeEventListener("visibilitychange", vis); };
+      },
+    };
+  }
+  const db = {
+    doc(path){
+      const seg = path.split("/");
+      if(seg[0] === "data" && seg[1] === "users") return stateDoc(seg[2]);
+      if(seg[0] === "families") return familyDoc(seg[1].toUpperCase());
+      throw new TypeError("Unknown path " + path);
+    },
+    collection(){ return { get: async () => ({ docs: [], empty: true, size: 0 }) }; },
+  };
+  const user = {
+    async id(){ const u = await session(); return u ? u.id : null; },
+    async isOwner(){ return false; },
+  };
+  window.claude = {
+    async use(name){
+      const u = await session();
+      if(!u) return null;
+      if(name === "db") return db;
+      if(name === "user") return user;
+      return null;
+    },
+  };
+})();
+</script>
 <script>
 // [title, year, genres, rating, blurb]
 const RAW = [
@@ -781,7 +886,7 @@ function saveLocal(){ try{ localStorage.setItem(LS, JSON.stringify({ personal: s
 let syncReady = false, wasSynced = false, syncDismissed = false;
 function syncLabel(){
   if(P) wasSynced = true;
-  $("syncAlert").hidden = true;
+  $("syncAlert").hidden = !syncReady || !!P || syncDismissed;
 }
 loadLocal();
 
@@ -1183,7 +1288,7 @@ function renderPro(){
 function renderFamily(){
   const box = $("famBox"); box.replaceChildren();
   if(!P){
-    box.innerHTML = `<p>Family lists are coming soon with accounts. For now, your lists are saved on this phone.</p>`;
+    box.innerHTML = `<p>Family lists need an internet connection. Right now your lists are saved on this phone.</p>`;
     return;
   }
   if(state.family){
@@ -1208,7 +1313,7 @@ function renderFamily(){
     const code = box.querySelector("#famCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
     if(code.length !== 6) return err("Codes have 6 letters and numbers.");
     try{
-      const s = await db.doc("families/"+code).get();
+      const s = await db.doc("families/"+code).join();
       if(!s.exists) return err("No family list uses that code. Check it with whoever shared it.");
       setFamily(code); persist("settings"); renderAll(); toast("Joined the family list");
     }catch(e){ err("Couldn't reach the family list. Try again."); }
@@ -1378,7 +1483,7 @@ const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","
 const PACK_ES = { valentines:"San Valentín en familia", easter:"Pascua y primavera", july4:"4 de julio", halloween:"Halloween en familia",
   thanksgiving:"Acción de Gracias", christmas:"Navidad", sports:"Noche deportiva", animated:"Clásicos animados", "2010s":"Éxitos de los 2010s" };
 const ES = {
-  "Not synced":"Sin sincronizar","Your lists are saved on this phone only. Open the app signed in to Claude to keep them on every device.":"Tus listas se guardan solo en este teléfono. Abre la app con tu cuenta de Claude para tenerlas en todos tus dispositivos.","Dismiss":"Cerrar","On this device":"En este teléfono","Saved to account":"Guardado en tu cuenta","Family list":"Lista familiar",
+  "Not synced":"Sin sincronizar","Your lists are saved on this phone for now. They'll sync again when you're back online.":"Por ahora tus listas se guardan en este teléfono. Se sincronizan cuando vuelvas a tener conexión.","Dismiss":"Cerrar","On this device":"En este teléfono","Saved to account":"Guardado en tu cuenta","Family list":"Lista familiar",
   "Where your lists are saved":"Dónde se guardan tus listas","Filters":"Filtros","Sections":"Secciones",
   "Collection":"Colección","Decade":"Década","Genre":"Género","Family":"Familia",
   "All movies":"Todas las películas","The classics":"Los clásicos","➕ Added by you":"➕ Agregadas por ti","All":"Todas","Other years":"Otros años",
@@ -1427,7 +1532,7 @@ const ES = {
   "📼 Theme packs":"📼 Paquetes temáticos","Turn a pack on and its movies join your catalog and the roulette all year.":"Activa un paquete y sus películas entran a tu catálogo y a la ruleta todo el año.",
   "👨‍👩‍👧 Family list":"👨‍👩‍👧 Lista familiar",
   "Everyone at home shares one favorites list, one watched list and the movies you add. One Pro purchase covers the family: whoever has the code can join.":"Toda la casa comparte una sola lista, las vistas y las películas que agreguen. Una compra de Pro cubre a la familia: quien tenga el código se puede unir.",
-  "Family lists are coming soon with accounts. For now, your lists are saved on this phone.":"Las listas familiares llegan pronto con cuentas. Por ahora tus listas se guardan en este teléfono.",
+  "Family lists need an internet connection. Right now your lists are saved on this phone.":"Las listas familiares necesitan conexión a internet. Por ahora tus listas se guardan en este teléfono.",
   "You're on a family list. Share this code so others can join:":"Estás en una lista familiar. Comparte este código para que otros se unan:",
   "Connecting to your family list…":"Conectando con tu lista familiar…","Copy code":"Copiar código","Leave family list":"Salir de la lista familiar",
   "Have a code? Enter it":"¿Tienes un código? Escríbelo","Join":"Unirme","Start a family list":"Crear lista familiar",
