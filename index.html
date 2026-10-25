@@ -704,8 +704,10 @@ const PACKS = [
   ["Rise of the Guardians",2012,"Animation,Adventure","PG","Jack Frost teams up with the Easter Bunny, Santa and the Tooth Fairy."],
   ["Peter Rabbit",2018,"Comedy,Family","PG","Peter and his family wage war on the new owner of the garden."],
   ["Peter Rabbit 2: The Runaway",2021,"Comedy,Family","PG","Peter runs away to the big city and finds trouble."],
+  ["Willy Wonka & the Chocolate Factory",1971,"Fantasy,Family","G","Charlie finds a golden ticket and steps inside the world's most mysterious chocolate factory."],
+  ["Charlie and the Chocolate Factory",2005,"Fantasy,Family","PG","Five kids win a tour of Willy Wonka's factory, and not all of them leave the same."],
  ]},
- { id:"july4", em:"🎆", name:"Fourth of July", season:{from:[6,20],to:[7,7]}, list:[
+ { id:"july4", em:"🎆", name:"Fourth of July", season:{from:[6,20],to:[7,7]}, also:["independence-day-1996","national-treasure-2004"], list:[
   ["1776",1972,"Drama,Family","G","The Founding Fathers argue, sing and sign the Declaration."],
   ["Jaws",1975,"Thriller,Adventure","PG","A great white shark threatens a beach town's Fourth of July."],
   ["An American Tail",1986,"Animation,Adventure","G","A young mouse emigrates to America and gets lost in New York."],
@@ -717,7 +719,7 @@ const PACKS = [
   ["Hamilton",2020,"Drama,Family","PG-13","The hit musical about founding father Alexander Hamilton."],
   ["Top Gun: Maverick",2022,"Action,Drama","PG-13","Maverick trains a new class of pilots for an impossible mission."],
  ]},
- { id:"halloween", em:"🎃", name:"Family Halloween", free:true, season:{from:[10,1],to:[11,2]}, includes:["hocus-pocus-1993"], list:[
+ { id:"halloween", em:"🎃", name:"Family Halloween", free:true, season:{from:[10,1],to:[11,2]}, includes:["hocus-pocus-1993"], also:["ghostbusters-1984","beetlejuice-1988"], list:[
   ["The Nightmare Before Christmas",1993,"Animation,Fantasy","PG","Jack Skellington discovers Christmas Town and wants it for himself."],
   ["Casper",1995,"Family,Fantasy","PG","A friendly ghost befriends the girl who moves into his mansion."],
   ["Monster House",2006,"Animation,Comedy","PG","Three kids learn the creepy house across the street is alive."],
@@ -733,7 +735,7 @@ const PACKS = [
   ["Frankenweenie",2012,"Animation,Comedy","PG","Victor brings his beloved dog back to life with a science project."],
   ["Goosebumps",2015,"Comedy,Adventure","PG","The monsters from R.L. Stine's books escape into a real town."],
   ["It's the Great Pumpkin, Charlie Brown",1966,"Animation,Family","NR","Linus waits all night for the Great Pumpkin while Charlie Brown goes trick-or-treating."],
-  ["Kiki's Delivery Service",1989,"Animation,Fantasy","G","A 13-year-old witch starts a delivery service on her broom."],
+  ["Ernest Scared Stupid",1991,"Comedy,Family","PG","Ernest accidentally frees a troll that wants to turn the town's kids into wooden dolls."],
   ["The Adventures of Ichabod and Mr. Toad",1949,"Animation,Family","G","Includes the legend of the Headless Horseman of Sleepy Hollow."],
   ["Scooby-Doo",2002,"Comedy,Adventure","PG","Scooby and the gang reunite to solve a mystery on a party island."],
   ["The Little Vampire",2000,"Family,Fantasy","PG","A new kid in Scotland befriends a young vampire."],
@@ -753,8 +755,8 @@ const PACKS = [
   ["Planes, Trains and Automobiles",1987,"Comedy","R","Two mismatched travelers try to get home for Thanksgiving."],
   ["Dutch",1991,"Comedy","PG-13","A working-class guy drives his girlfriend's snobby son home for the holiday."],
   ["Addams Family Values",1993,"Comedy","PG-13","Wednesday stars in the most memorable summer camp Thanksgiving play ever."],
-  ["Pocahontas",1995,"Animation,Drama","G","Pocahontas meets English settlers and tries to keep the peace."],
-  ["Charlotte's Web",2006,"Family,Drama","G","A clever spider saves her pig friend Wilbur."],
+  ["A Charlie Brown Thanksgiving",1973,"Animation,Family","NR","Peppermint Patty invites herself over and Charlie Brown has to throw together the feast."],
+  ["Son in Law",1993,"Comedy","PG-13","A college girl brings a very unconventional friend home to the farm for Thanksgiving."],
   ["The Blind Side",2009,"Drama","PG-13","A family takes in a teenager who becomes a football star."],
   ["Fantastic Mr. Fox",2009,"Animation,Comedy","PG","A fox plans one last heist against three mean farmers."],
   ["Free Birds",2013,"Animation,Comedy","PG","Two turkeys travel back in time to take turkey off the menu."],
@@ -785,7 +787,7 @@ const PACKS = [
   ["Home Alone 2: Lost in New York",1992,"Comedy","PG","Kevin boards the wrong plane and has New York all to himself."],
   ["The Polar Express",2004,"Animation,Adventure","G","A magical train takes a boy to the North Pole on Christmas Eve."],
  ]},
- { id:"sports", em:"🏆", name:"Sports Night", list:[
+ { id:"sports", em:"🏆", name:"Sports Night", also:["the-sandlot-1993","the-karate-kid-1984","space-jam-1996"], list:[
   ["Rocky IV",1985,"Action,Drama","PG","Rocky goes to Russia to fight the giant Ivan Drago."],
   ["Hoosiers",1986,"Drama","PG","A small-town Indiana basketball team chases the state title."],
   ["Field of Dreams",1989,"Drama,Fantasy","PG","An Iowa farmer builds a baseball field in his cornfield."],
@@ -833,6 +835,7 @@ const PACKS = [
 ];
 PACKS.forEach(p => p.movies = p.list.map(mkMovie(p.id)));
 const PACK_BY = Object.fromEntries(PACKS.map(p => [p.id, p]));
+const packCount = p => p.movies.length + (p.includes ? p.includes.length : 0) + (p.also ? p.also.length : 0);
 
 const ALL_BY = new Map(BASE.concat(...PACKS.map(p => p.movies)).map(m => [m.id, m]));
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -865,7 +868,7 @@ const livePack = p => packOn(p) && inSeason(p);
 function rebuild(){
   const off = new Set(PACKS.filter(p => p.includes && !inSeason(p)).flatMap(p => p.includes));
   const tagged = {};
-  PACKS.filter(p => p.includes && livePack(p)).forEach(p => p.includes.forEach(id => (tagged[id] = tagged[id]||[]).push(p.id)));
+  PACKS.filter(p => (p.includes || p.also) && livePack(p)).forEach(p => [...(p.includes||[]), ...(p.also||[])].forEach(id => (tagged[id] = tagged[id]||[]).push(p.id)));
   MOVIES = BASE.filter(m => !off.has(m.id)).map(m => tagged[m.id] ? { ...m, cols:["main", ...tagged[m.id]] } : m)
     .concat(...PACKS.filter(livePack).map(p => p.movies),
       list().custom.map(c => ({ ...c, src:"mine", cols:["mine"], mine:true, d: decadeOf(c.y) })));
@@ -1274,7 +1277,7 @@ function renderPro(){
     const locked = !p.free && !state.pro, on = packOn(p);
     const when = p.season ? (inSeason(p) ? '<span class="insea">In season now</span>' : `Plays ${seasonLabel(p)}`) : "";
     const r = document.createElement("div"); r.className = "pack";
-    r.innerHTML = `<span class="em">${p.em}</span><div><b>${p.name}</b><small>${p.movies.length + (p.includes?p.includes.length:0)} movies${p.free?" · Free":""}${locked?' · <span class="lock">PRO</span>':""}${when?"<br>"+when:""}</small></div>
+    r.innerHTML = `<span class="em">${p.em}</span><div><b>${p.name}</b><small>${packCount(p)} movies${p.free?" · Free":""}${locked?' · <span class="lock">PRO</span>':""}${when?"<br>"+when:""}</small></div>
       <button class="sw" role="switch" aria-checked="${on}" aria-label="${p.name}"></button>`;
     r.querySelector(".sw").onclick = () => {
       if(locked) return toast("Unlock Pro to add this pack");
@@ -1350,7 +1353,7 @@ function renderFamily(){
 const idOf = (t, y) => slug(t) + "-" + y;
 const CD = {
   halloween: { id:"halloween", em:"🎃", name:"Halloween Countdown", nameEs:"Cuenta regresiva de Halloween", month:9, mon:"October", monEs:"octubre", days:31, ids: [
-    ["It's the Great Pumpkin, Charlie Brown",1966],["Kiki's Delivery Service",1989],["The Adventures of Ichabod and Mr. Toad",1949],["Casper",1995],
+    ["It's the Great Pumpkin, Charlie Brown",1966],["Ernest Scared Stupid",1991],["The Adventures of Ichabod and Mr. Toad",1949],["Casper",1995],
     ["Scooby-Doo",2002],["The Little Vampire",2000],["Halloweentown",1998],["Wallace & Gromit: The Curse of the Were-Rabbit",2005],
     ["Hotel Transylvania",2012],["Hotel Transylvania 2",2015],["The Witches",1990],["Monster House",2006],["Frankenweenie",2012],
     ["Goosebumps",2015],["Goosebumps 2: Haunted Halloween",2018],["The House with a Clock in Its Walls",2018],["The Haunted Mansion",2003],
@@ -1416,7 +1419,7 @@ function renderBanner(){
     el.querySelector("button").textContent = L("See it", "Verlo");
     el.querySelector("button").onclick = () => showView("review");
   } else if(live.length){
-    const p = live[0], count = p.movies.length + (p.includes ? p.includes.length : 0), only = state.col === p.id;
+    const p = live[0], count = packCount(p), only = state.col === p.id;
     el.innerHTML = `<div><b data-raw></b><span data-raw></span></div><button class="bbtn" data-raw></button>`;
     el.querySelector("b").textContent = L(`${p.em} ${p.name} season`, `${p.em} Temporada: ${PACK_ES[p.id]}`);
     el.querySelector("span").textContent = L(`${count} holiday movies are in the roulette until ${MONTHS[p.season.to[0]-1]} ${p.season.to[1]}.`,
@@ -1766,7 +1769,11 @@ const ES_B = {
 "Frankenweenie":"Victor revive a su querido perro con un proyecto de ciencias.",
 "Goosebumps":"Los monstruos de los libros de R.L. Stine escapan a un pueblo real.",
 "It's the Great Pumpkin, Charlie Brown":"Linus espera toda la noche a la Gran Calabaza mientras Charlie Brown pide dulces.",
-"Kiki's Delivery Service":"Una brujita de 13 años abre un servicio de entregas en su escoba.",
+"Ernest Scared Stupid":"Ernest libera por accidente a un troll que quiere convertir a los niños del pueblo en muñecos de madera.",
+"Willy Wonka & the Chocolate Factory":"Charlie encuentra un boleto dorado y entra a la fábrica de chocolate más misteriosa del mundo.",
+"Charlie and the Chocolate Factory":"Cinco niños ganan un recorrido por la fábrica de Willy Wonka, y no todos salen igual.",
+"A Charlie Brown Thanksgiving":"Peppermint Patty se invita a cenar y Charlie Brown tiene que improvisar el banquete.",
+"Son in Law":"Una chica lleva a casa para Acción de Gracias a un amigo de la universidad muy poco convencional.",
 "The Adventures of Ichabod and Mr. Toad":"Incluye la leyenda del jinete sin cabeza de Sleepy Hollow.",
 "Scooby-Doo":"Scooby y la pandilla se reúnen para resolver un misterio en una isla de fiesta.",
 "The Little Vampire":"Un niño nuevo en Escocia se hace amigo de un pequeño vampiro.",
