@@ -1066,8 +1066,19 @@ function renderLists(){
   const n = list().custom.length, where = state.family && state.shared ? "Movies you add go to your family list." : "Movies you add are only in your catalog.";
   $("addNote").textContent = where + (state.pro ? " Pro: unlimited." : ` Free version: ${n} of ${FREE_CUSTOM} used.`);
 }
+let reelSig = null;
+const reelKey = () => [state.col, state.dec, state.gen, state.fam, state.inclSeen, state.pro, state.packs.join(","), state.holOff.join(","), list().custom.length].join("|");
+function seedReel(p){
+  // the faded titles behind "Surprise me" always come from the current filters
+  const reel = $("reel"); reel.style.transform = ""; reel.replaceChildren();
+  const pick = p.slice().sort(() => Math.random() - .5).slice(0, 3);
+  [0,1,2].forEach(i => { const d = document.createElement("div"); d.textContent = pick[i] ? pick[i].t : ""; d.style.opacity = .35; reel.append(d); });
+  $("idle").hidden = false;
+}
 function renderPool(){
   const p = spinPool();
+  const sig = reelKey();
+  if(!spinning && sig !== reelSig){ reelSig = sig; seedReel(p); }
   $("pool").textContent = p.length ? `${p.length} tapes` : "No movies match these filters";
   $("spinBtn").disabled = p.length===0 || spinning;
   $("snackBtn").setAttribute("aria-pressed", state.pro && state.snack);
@@ -1105,6 +1116,7 @@ function bringIntoView(el){
   requestAnimationFrame(() => el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
 }
 function landOn(id, label){
+  reelSig = reelKey();
   state.lastLabel = label || null;
   state.last = id; state.lastSnack = (state.pro && state.snack) ? rnd(SNACKS) : null;
   renderPool(); renderReveal(id, true); bringIntoView($("revealSlot").firstElementChild);
@@ -1917,10 +1929,6 @@ $("resetYes").onclick = () => {
 let tt; function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.opacity=1; clearTimeout(tt); tt=setTimeout(()=>t.style.opacity=0,1800); }
 
 renderAll();
-(function seedScreen(){
-  const reel = $("reel"); const p = spinPool();
-  [p[5],p[12],p[20]].forEach(m => { const d=document.createElement("div"); d.textContent=m?m.t:""; d.style.opacity=.35; reel.append(d); });
-})();
 if(location.hash === "#pro") showView("pro");
 </script>
 
