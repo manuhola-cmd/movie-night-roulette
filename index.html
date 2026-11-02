@@ -892,7 +892,7 @@ function saveLocal(){ try{ localStorage.setItem(LS, JSON.stringify({ personal: s
 let syncReady = false, wasSynced = false, syncDismissed = false;
 function syncLabel(){
   if(P) wasSynced = true;
-  $("syncAlert").hidden = !syncReady || !!P || syncDismissed;
+  $("syncAlert").hidden = true;   // hidden for now: everyone uses the app on their own phone
 }
 loadLocal();
 
@@ -1265,10 +1265,10 @@ function renderPro(){
   hero.className = "prohero"+(state.pro?" owned":"");
   hero.innerHTML = state.pro
     ? `<h2>You have Pro</h2><p>Every pack, the family list, holiday packs, the family list, veto and vote modes, snack suggestions and themes are unlocked. Thanks for supporting movie night.</p>`
-    : `<h2>Movie Night Pro</h2><div class="price">${PRICE} once · no subscription</div>
+    : `<h2>Movie Night Pro</h2>
        <p>Holiday and theme packs, Halloween and Christmas countdowns, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.</p>
        <button class="buy" id="buyPro">Unlock Pro</button>
-       <span class="note">Preview: payments arrive with the App Store version. Unlocking here is free so you can try everything.</span>`;
+       <span class="note">Free for now. Unlock it to try everything.</span>`;
   const buy = $("buyPro");
   if(buy) buy.onclick = () => { state.pro = true; persist("settings"); renderAll(); toast("Pro unlocked"); };
   $("proOff").hidden = !state.pro;
@@ -1542,7 +1542,7 @@ const ES = {
   "Every pack, holiday packs, the family list, veto and vote modes, snack suggestions and themes are unlocked. Thanks for supporting movie night.":"Todos los paquetes, los días festivos, la lista familiar, los modos veto y votación, las botanas y los temas están desbloqueados. Gracias por apoyar la noche de película.",
   "Holiday and theme packs, a Christmas Countdown, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.":"Paquetes temáticos y de días festivos, cuentas regresivas de Halloween y Navidad, lista familiar compartida, modos veto y votación, sugerencias de botana, temas de color y películas propias ilimitadas.",
   "Holiday and theme packs, Halloween and Christmas countdowns, a shared family list, veto and vote modes, snack suggestions, color themes and unlimited movies of your own.":"Paquetes temáticos y de días festivos, cuentas regresivas de Halloween y Navidad, lista familiar compartida, modos veto y votación, sugerencias de botana, temas de color y películas propias ilimitadas.",
-  "Unlock Pro":"Desbloquear Pro","Preview: payments arrive with the App Store version. Unlocking here is free so you can try everything.":"Vista previa: los pagos llegan con la versión de App Store. Aquí desbloquearlo es gratis para que pruebes todo.",
+  "Unlock Pro":"Desbloquear Pro","Free for now. Unlock it to try everything.":"Gratis por ahora. Desbloquéalo para probar todo.",
   "Turn off Pro preview":"Apagar vista previa de Pro",
   "🎉 Holiday packs":"🎉 Paquetes de días festivos",
   "Holiday movies only play in their season, so they stay special. The rest of the year they stay out of the roulette. Halloween is free.":"Las películas de días festivos solo salen en su temporada, para que sigan siendo especiales. El resto del año no aparecen en la ruleta. Halloween es gratis.",
